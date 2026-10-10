@@ -1,4 +1,5 @@
-import type {CSSProperties, Metadata} from 'react';
+import type {CSSProperties} from 'react';
+import type {Metadata} from 'next';
 import Link from 'next/link';
 import {ArrowUpRight,CalendarDays,Clock3,CheckCircle2} from 'lucide-react';
 import {BookingWidget} from './reservation-widget';
