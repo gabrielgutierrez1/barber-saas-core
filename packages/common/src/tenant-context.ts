@@ -32,7 +32,7 @@ export class DirectoryClient {
 export class PrismaTenantPool<T extends {$disconnect():Promise<void>}> implements OnModuleDestroy {
  private readonly clients=new Map<string,{client:T;used:number}>();
  private readonly loading=new Map<string,Promise<T>>();
- constructor(private readonly directory:DirectoryClient,private readonly kind:string,private readonly create:(url:string)=>T){}
+ constructor(private readonly directory:DirectoryClient,private readonly kind:string,private readonly createClient:(url:string)=>T){}
  async get(id:string):Promise<T>{
   const tenantId=tenantHeader(id); const found=this.clients.get(tenantId);
   if(found){found.used=Date.now();return found.client;}
@@ -43,7 +43,7 @@ export class PrismaTenantPool<T extends {$disconnect():Promise<void>}> implement
     const [oldId,old]=[...this.clients.entries()].sort((a,b)=>a[1].used-b[1].used)[0];
     this.clients.delete(oldId);await old.client.$disconnect();
    }
-   const client=this.create(url);this.clients.set(tenantId,{client,used:Date.now()});return client;
+   const client=this.createClient(url);this.clients.set(tenantId,{client,used:Date.now()});return client;
   })().finally(()=>this.loading.delete(tenantId));
   this.loading.set(tenantId,task);return task;
  }
