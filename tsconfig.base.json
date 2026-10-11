@@ -1,8 +1,18 @@
 {
   "compilerOptions": {
-    "target": "ES2022", "module": "commonjs", "moduleResolution": "node", "lib": ["ES2022","DOM"],
-    "strict": true, "esModuleInterop": true, "skipLibCheck": true, "experimentalDecorators": true,
-    "emitDecoratorMetadata": true, "types": ["node"], "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true, "sourceMap": true
+    "target": "ES2022",
+    "module": "node16",
+    "lib": ["ES2022", "DOM"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "types": ["node"],
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "sourceMap": true,
+    "moduleResolution": "node16",
+    "declaration": true
   }
 }

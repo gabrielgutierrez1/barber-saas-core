@@ -1,3 +1,11 @@
 .env
 .env.*
 !.env.example
+node_modules/
+dist/
+.next/
+coverage/
+*.tsbuildinfo
+frontend/public/sw.js
+frontend/public/workbox-*.js
+backups/
