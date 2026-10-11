@@ -1,3 +1,11 @@
+.git
 .env
 .env.*
 !.env.example
+node_modules
+**/node_modules
+**/.next
+**/dist
+**/*.tsbuildinfo
+backups
+coverage

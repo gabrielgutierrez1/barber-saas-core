@@ -1,12 +1,11 @@
-import { readFileSync,existsSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import assert from 'node:assert/strict';
-for(const name of ['manager','catalog','reservations','payments','auth']){
- const src=readFileSync(`prisma/${name}/schema.prisma`,'utf8');
- assert(!src.includes('tenantId')||name==='manager',`Found shared tenantId in ${name}`);
- assert(existsSync(`prisma/${name}/migrations/20261010000000_init/migration.sql`));
-}
-const home=readFileSync('apps/web/src/app/page.tsx','utf8');
-assert(!home.includes('Ver Barbería Central'));
-const api=readFileSync('apps/web/src/lib/types.ts','utf8');
-assert(api.includes("'x-tenant-id':tenantId"));
-console.log('OK estructura aislada/white-label');
+const schema = readFileSync('backend/prisma/schema.prisma', 'utf8');
+assert.equal((schema.match(/datasource /g) || []).length, 1);
+assert(!schema.includes('tenantId'));
+for (const model of ['Salon', 'User', 'Service', 'Professional', 'Reservation', 'PaymentAttempt'])
+  assert(schema.includes(`model ${model} {`));
+assert(existsSync('package-lock.json'));
+assert(existsSync('.env.example'));
+assert(!existsSync('apps/tenant-manager'));
+console.log('OK: una base por instalación, backend modular y frontend independiente');

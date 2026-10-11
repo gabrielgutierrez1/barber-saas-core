@@ -1,0 +1,135 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "postgresql"
+  url = env("DATABASE_URL")
+}
+enum UserRole {
+  OWNER
+  STAFF
+}
+enum ReservationStatus {
+  PENDING_PAYMENT
+  CONFIRMED
+  EXPIRED
+  CANCELLED
+  PAYMENT_REVIEW
+}
+model Salon {
+  id Int @id @default(1)
+  slug String @default("salon")
+  name String
+  description String @default("")
+  logoUrl String?
+  primaryColor String @default("#bb865d")
+  timeZone String @default("America/Santiago")
+  openingHour Int @default(9)
+  closingHour Int @default(19)
+  workDays Int[] @default([1,2,3,4,5,6])
+  contactEmail String @default("")
+  contactPhone String @default("")
+}
+model User {
+  id String @id @default(uuid()) @db.Uuid
+  email String @unique
+  passwordHash String
+  name String
+  role UserRole @default(STAFF)
+  active Boolean @default(true)
+  sessionVersion Int @default(0)
+  resetTokenHash String? @unique
+  resetExpiresAt DateTime? @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+}
+model Service {
+  id String @id @default(uuid()) @db.Uuid
+  name String
+  description String?
+  price Int
+  durationMin Int
+  active Boolean @default(true)
+  professionals Professional[]
+  reservations Reservation[]
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+}
+model Professional {
+  id String @id @default(uuid()) @db.Uuid
+  name String
+  active Boolean @default(true)
+  openingHour Int @default(9)
+  closingHour Int @default(19)
+  workDays Int[] @default([1,2,3,4,5,6])
+  services Service[]
+  blocks ScheduleBlock[]
+  reservations Reservation[]
+}
+model ScheduleBlock {
+  id String @id @default(uuid()) @db.Uuid
+  professionalId String @db.Uuid
+  professional Professional @relation(fields:[professionalId], references:[id])
+  startsAt DateTime @db.Timestamptz(3)
+  endsAt DateTime @db.Timestamptz(3)
+  reason String
+  @@index([professionalId, startsAt, endsAt])
+}
+model Reservation {
+  id String @id @default(uuid()) @db.Uuid
+  serviceId String @db.Uuid
+  service Service @relation(fields:[serviceId], references:[id])
+  professionalId String @db.Uuid
+  professional Professional @relation(fields:[professionalId], references:[id])
+  serviceName String
+  customerName String
+  customerEmail String
+  customerPhone String?
+  startsAt DateTime @db.Timestamptz(3)
+  endsAt DateTime @db.Timestamptz(3)
+  status ReservationStatus @default(PENDING_PAYMENT)
+  expiresAt DateTime @db.Timestamptz(3)
+  bookingTokenHash String @unique
+  priceSnapshot Int
+  checkoutKey String @unique @default(uuid()) @db.Uuid
+  preferenceId String? @unique
+  checkoutUrl String?
+  checkoutLeaseUntil DateTime? @db.Timestamptz(3)
+  legacyReference String? @unique
+  approvedPaymentId String?
+  payments PaymentAttempt[]
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  @@index([professionalId, startsAt, endsAt])
+  @@index([status, expiresAt])
+}
+model PaymentAttempt {
+  id String @id // Provider payment ID; each retry is independent.
+  reservationId String @db.Uuid
+  reservation Reservation @relation(fields:[reservationId], references:[id])
+  status String
+  amount Int
+  currency String
+  providerUpdatedAt DateTime @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+}
+model AuditEvent {
+  id String @id @default(uuid()) @db.Uuid
+  actorId String
+  action String
+  reservationId String? @db.Uuid
+  note String
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+}
+model EmailJob {
+  id String @id @default(uuid()) @db.Uuid
+  key String @unique
+  to String
+  subject String
+  text String
+  attempts Int @default(0)
+  availableAt DateTime @default(now()) @db.Timestamptz(3)
+  leaseUntil DateTime? @db.Timestamptz(3)
+  sentAt DateTime? @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  @@index([sentAt, availableAt])
+}
