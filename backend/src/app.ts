@@ -16,6 +16,7 @@ import { CatalogModule } from './modules/catalog/catalog';
 import { ReservationsModule } from './modules/reservations/reservations';
 import { PaymentsModule } from './modules/payments/payments';
 import { NotificationsModule } from './modules/notifications/notifications';
+import { ExperienceModule } from './modules/experience/experience';
 import { Prisma } from '@prisma/client';
 @Catch()
 export class ApiErrors implements ExceptionFilter {
@@ -58,6 +59,7 @@ class HealthController {
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
     AuthModule,
     CatalogModule,
+    ExperienceModule,
     ReservationsModule,
     PaymentsModule,
     NotificationsModule,

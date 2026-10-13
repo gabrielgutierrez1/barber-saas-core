@@ -19,10 +19,11 @@ import {
 import { DateTime } from 'luxon';
 import { Database, lock, Tx } from '../../common/database';
 import { BookingTokenDto, CreateReservationDto, DateQueryDto } from '../../common/dtos';
-import { MoveDto, ReviewDto } from '../../common/management-dtos';
+import { CustomerMoveDto, CustomerSlotsDto, MoveSlotsDto, MoveDto, ReviewDto } from '../../common/management-dtos';
 import { busyWhere, effectiveStatus, localStart } from '../../common/time';
 import { AdminGuard, AdminRequest, AuthModule, hashToken, OwnerGuard } from '../auth/auth';
-import { Reservation } from '@prisma/client';
+import { SearchDto } from '../experience/dtos';
+import { Prisma, Reservation } from '@prisma/client';
 export async function notifyReservation(tx: Tx, r: Reservation, event: string) {
   const salon = await tx.salon.findUniqueOrThrow({ where: { id: 1 } });
   const date = DateTime.fromJSDate(r.startsAt).setZone(salon.timeZone).toFormat('dd/MM/yyyy HH:mm');
@@ -84,7 +85,7 @@ export class ReservationsService {
     )
       throw new ConflictException('El horario ya está ocupado');
   }
-  async availability(dto: DateQueryDto) {
+  async availability(dto: DateQueryDto, exclude?: Reservation) {
     const { salon, service, professional } = await this.context(
       this.db,
       dto.serviceId,
@@ -97,20 +98,21 @@ export class ReservationsService {
       endsAt: { gt: base.toJSDate() },
     };
     const taken = [
-      ...(await this.db.reservation.findMany({ where: { ...overlap, ...busyWhere() } })),
+      ...(await this.db.reservation.findMany({ where: { ...overlap, ...busyWhere(), ...(exclude ? { id: { not: exclude.id } } : {}) } })),
       ...(await this.db.scheduleBlock.findMany({ where: overlap })),
     ];
+    const duration = exclude ? (exclude.endsAt.getTime() - exclude.startsAt.getTime()) / 60000 : service.durationMin;
     const slots: string[] = [];
     for (
       let h = Math.max(salon.openingHour, professional.openingHour) * 60;
-      h + service.durationMin <= Math.min(salon.closingHour, professional.closingHour) * 60;
+      h + duration <= Math.min(salon.closingHour, professional.closingHour) * 60;
       h += 30
     ) {
       const time = `${Math.floor(h / 60)
         .toString()
         .padStart(2, '0')}:${(h % 60).toString().padStart(2, '0')}`;
       const start = localStart(dto.date, time, salon.timeZone),
-        end = start.plus({ minutes: service.durationMin });
+        end = start.plus({ minutes: duration });
       if (
         !salon.workDays.includes(start.weekday) ||
         !professional.workDays.includes(start.weekday) ||
@@ -155,17 +157,32 @@ export class ReservationsService {
       return { id: r.id, bookingToken: dto.bookingToken, status: r.status, expiresAt: r.expiresAt };
     });
   }
+  getForMove(id: string) { return this.db.reservation.findUniqueOrThrow({ where: { id } }); }
   async owned(id: string, token: string) {
     const r = await this.db.reservation.findUnique({ where: { id } });
-    if (!r || hashToken(token) !== r.bookingTokenHash)
+    if (!r) throw new NotFoundException('Reserva no encontrada');
+    const recovered = hashToken(token) === r.bookingTokenHash || await this.db.bookingAccess.findFirst({ where: { tokenHash: hashToken(token), reservationId: id, expiresAt: { gt: new Date() } } });
+    if (!recovered)
       throw new NotFoundException('Reserva no encontrada');
     return r;
   }
   async status(id: string, token: string) {
     const r = await this.owned(id, token);
-    return { id: r.id, status: effectiveStatus(r), startsAt: r.startsAt, endsAt: r.endsAt };
+    const professional = await this.db.professional.findUniqueOrThrow({ where: { id: r.professionalId }, select: { name: true } });
+    const salon = await this.db.salon.findUniqueOrThrow({ where: { id: 1 } });
+    return { id: r.id, status: effectiveStatus(r), startsAt: r.startsAt, endsAt: r.endsAt, serviceName: r.serviceName, serviceId: r.serviceId, professionalId: r.professionalId, professional, priceSnapshot: r.priceSnapshot, timeZone: salon.timeZone, customerName: r.customerName };
   }
-  async list(page: number) {
+  async list(page: number, filters: SearchDto = { page: 1 }) {
+    const where: Prisma.ReservationWhereInput = {
+      ...(filters.status ? { status: filters.status } : {}),
+      ...(filters.professionalId ? { professionalId: filters.professionalId } : {}),
+      ...(filters.q ? { OR: [{ customerName: { contains: filters.q, mode: 'insensitive' } }, { customerEmail: { contains: filters.q, mode: 'insensitive' } }] } : {}),
+    };
+    if (filters.date) {
+      const salon = await this.db.salon.findUniqueOrThrow({ where: { id: 1 } });
+      const start = localStart(filters.date, '00:00', salon.timeZone);
+      where.startsAt = { gte: start.toJSDate(), lt: start.plus({ days: 1 }).toJSDate() };
+    }
     if (page < 1 || page > 100000) throw new BadRequestException('Página inválida');
     const now = new Date();
     return this.db.$transaction(async (tx) => {
@@ -175,6 +192,7 @@ export class ReservationsService {
       });
       const [items, total, confirmed, review] = await Promise.all([
         tx.reservation.findMany({
+          where,
           orderBy: [{ startsAt: 'desc' }, { id: 'asc' }],
           skip: (page - 1) * 25,
           take: 25,
@@ -193,9 +211,9 @@ export class ReservationsService {
             professional: { select: { name: true } },
           },
         }),
-        tx.reservation.count(),
-        tx.reservation.count({ where: { status: 'CONFIRMED' } }),
-        tx.reservation.count({ where: { status: 'PAYMENT_REVIEW' } }),
+        tx.reservation.count({ where }),
+        tx.reservation.count({ where: { ...where, status: 'CONFIRMED' } }),
+        tx.reservation.count({ where: { ...where, status: 'PAYMENT_REVIEW' } }),
       ]);
       return { items, total, confirmed, review, page, pageSize: 25 };
     });
@@ -296,6 +314,14 @@ export class PublicReservationsController {
   ) {
     return this.service.status(id, dto.bookingToken);
   }
+  @Post('reservations/:id/move') async move(@Param('id', ParseUUIDPipe) id: string, @Body() dto: CustomerMoveDto) {
+    await this.service.owned(id, dto.bookingToken);
+    return this.service.move(id, dto, 'customer');
+  }
+  @Post('reservations/:id/availability') async slots(@Param('id', ParseUUIDPipe) id: string, @Body() dto: CustomerSlotsDto) {
+    const r = await this.service.owned(id, dto.bookingToken);
+    return this.service.availability({ serviceId: r.serviceId, professionalId: dto.professionalId, date: dto.date }, r);
+  }
   @Post('reservations/:id/cancel') async cancel(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: BookingTokenDto,
@@ -308,8 +334,12 @@ export class PublicReservationsController {
 @UseGuards(AdminGuard)
 export class AdminReservationsController {
   constructor(private service: ReservationsService) {}
-  @Get() list(@Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number) {
-    return this.service.list(page);
+  @Get() list(@Query() dto: SearchDto) {
+    return this.service.list(dto.page, dto);
+  }
+  @Get(':id/availability') async slots(@Param('id', ParseUUIDPipe) id: string, @Query() dto: MoveSlotsDto) {
+    const r = await this.service.getForMove(id);
+    return this.service.availability({ serviceId: r.serviceId, ...dto }, r);
   }
   @Post(':id/cancel') cancel(@Param('id', ParseUUIDPipe) id: string, @Req() req: AdminRequest) {
     return this.service.cancel(id, req.admin.id);
