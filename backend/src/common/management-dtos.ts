@@ -35,6 +35,9 @@ export class SalonDto {
   @IsOptional() @IsString() @MaxLength(500) logoUrl?: string;
 }
 export class ProfessionalDto {
+  @IsOptional() @IsString() @MaxLength(1000) bio?: string;
+  @IsOptional() @Matches(/^(https:\/\/[^\s]+)?$/) @MaxLength(500) photoUrl?: string;
+  @IsOptional() @IsString() @MaxLength(300) specialties?: string;
   @IsString() @MinLength(2) @MaxLength(100) name!: string;
   @IsBoolean() active!: boolean;
   @IsInt() @Min(0) @Max(23) openingHour!: number;
@@ -71,4 +74,15 @@ export class UserDto {
 }
 export class UserActiveDto {
   @IsBoolean() active!: boolean;
+}
+
+export class MoveSlotsDto {
+  @IsUUID() professionalId!: string;
+  @Matches(/^\d{4}-\d{2}-\d{2}$/) date!: string;
+}
+export class CustomerMoveDto extends MoveDto {
+  @IsString() @MinLength(32) @MaxLength(150) bookingToken!: string;
+}
+export class CustomerSlotsDto extends MoveSlotsDto {
+  @IsString() @MinLength(32) @MaxLength(150) bookingToken!: string;
 }

@@ -58,6 +58,9 @@ model Professional {
   id String @id @default(uuid()) @db.Uuid
   name String
   active Boolean @default(true)
+  bio String @default("")
+  photoUrl String @default("")
+  specialties String @default("")
   openingHour Int @default(9)
   closingHour Int @default(19)
   workDays Int[] @default([1,2,3,4,5,6])
@@ -132,4 +135,20 @@ model EmailJob {
   sentAt DateTime? @db.Timestamptz(3)
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   @@index([sentAt, availableAt])
+}
+
+model SiteContent {
+  id Int @id @default(1)
+  address String @default("")
+  about String @default("")
+  cancellationPolicy String @default("")
+  privacyPolicy String @default("")
+  faqs Json @default("[]")
+  gallery Json @default("[]")
+}
+model BookingAccess {
+  tokenHash String @id
+  reservationId String @db.Uuid
+  expiresAt DateTime @db.Timestamptz(3)
+  @@index([expiresAt])
 }

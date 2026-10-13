@@ -30,7 +30,7 @@ export class PublicCatalogController {
   @Get('professionals') professionals() {
     return this.db.professional.findMany({
       where: { active: true },
-      select: { id: true, name: true, services: { select: { id: true } } },
+      select: { id: true, name: true, bio: true, photoUrl: true, specialties: true, services: { where: { active: true }, select: { id: true, name: true } } },
     });
   }
 }
