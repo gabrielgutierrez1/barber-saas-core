@@ -1,11 +1,59 @@
+# Variables locales y credenciales (conservar plantillas)
 .env
 .env.*
 !.env.example
+!.env.*.example
+/.aws/
+*.pem
+*.key
+
+# Dependencias y cachés de herramientas
 node_modules/
+.npm/
+.pnpm-store/
+.cache/
+.eslintcache
+.stylelintcache
+.turbo/
+.vercel/
+
+# Compilaciones de NestJS, Next.js y TypeScript
 dist/
 .next/
-coverage/
+out/
 *.tsbuildinfo
+
+# Archivos PWA generados
 frontend/public/sw.js
+frontend/public/sw.js.map
 frontend/public/workbox-*.js
+frontend/public/workbox-*.js.map
+frontend/public/worker-*.js
+frontend/public/worker-*.js.map
+
+# Resultados de pruebas
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+
+# Logs, temporales y respaldos locales
+logs/
+*.log
+*.pid
+*.pid.lock
+tmp/
+temp/
 backups/
+*.dump
+*.sql.gz
+
+# Archivos del sistema y editores
+.DS_Store
+._*
+Thumbs.db
+Desktop.ini
+.idea/
+*.swp
+*.swo
+*~
