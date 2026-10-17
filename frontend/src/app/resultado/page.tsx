@@ -89,33 +89,34 @@ export default function ResultPage() {
 
   return (
     <main className="min-h-screen flex flex-col">
-      <header className="shell w-full py-8 flex items-center justify-between">
-        <Link href="/" className="brand-script">
-          {salonName}
-        </Link>
-        <Link href="/" className="nav-link">
-          <ArrowLeft size={15} className="inline mr-2" />
-          Volver al salón
-        </Link>
+      <header className="border-b border-[#252834] bg-[#0f1014]/85 backdrop-blur-md">
+        <div className="shell w-full py-6 flex items-center justify-between">
+          <Link href="/" className="brand-script">
+            {salonName}
+            <span style={{ color: 'var(--brand)' }}>.</span>
+          </Link>
+          <Link href="/" className="nav-link inline-flex items-center">
+            <ArrowLeft size={15} className="mr-2" />
+            Volver al estudio
+          </Link>
+        </div>
       </header>
 
       <div className="flex-1 flex items-center justify-center shell py-14">
         <div className="surface w-full max-w-xl p-9 md:p-14 text-center">
           {/* Status icon */}
-          <div className="mx-auto mb-7 w-20 h-20 bg-[#e9eee5] rounded-full flex items-center justify-center">
+          <div className="mx-auto mb-7 w-20 h-20 bg-[#20232e] border border-[#2d3140] rounded-2xl flex items-center justify-center">
             {confirmed ? (
-              <CheckCircle2 size={40} color="#567857" />
+              <CheckCircle2 size={40} color="#34d399" />
             ) : review ? (
-              <AlertCircle size={40} color="#9b624d" />
+              <AlertCircle size={40} color="#f59e0b" />
             ) : (
-              <Clock3 size={40} color="#ad835e" />
+              <Clock3 size={40} color="#d97757" />
             )}
           </div>
 
-          <p className="mini-label mb-4" style={{ color: '#a17c59' }}>
-            ESTADO DE RESERVA
-          </p>
-          <h1 className="serif text-5xl mb-6">
+          <p className="mini-label mb-3">ESTADO DE RESERVA</p>
+          <h1 className="serif uppercase text-4xl sm:text-5xl mb-5">
             {confirmed
               ? '¡Reserva confirmada!'
               : review
@@ -124,42 +125,48 @@ export default function ResultPage() {
                   ? 'Reserva cancelada'
                   : status === 'EXPIRED'
                     ? 'Reserva vencida'
-                    : 'Estamos verificando tu pago.'}
+                    : 'Verificando tu pago…'}
           </h1>
-          <p className="text-[#74766e] leading-7 mb-7">
+          <p className="text-[#9498a6] leading-7 mb-7 text-sm sm:text-base">
             {confirmed
-              ? 'Mercado Pago confirmó tu pago. ¡Te esperamos!'
+              ? 'Mercado Pago confirmó tu pago. ¡Tu silla te espera!'
               : review
-                ? 'El pago requiere revisión manual del salón. No consideres el horario confirmado hasta recibir respuesta.'
+                ? 'El pago requiere revisión manual del estudio. No consideres el horario confirmado hasta recibir respuesta.'
                 : status === 'CANCELLED'
-                  ? 'La reserva fue cancelada. Si pagaste, contacta al salón para coordinar la devolución.'
+                  ? 'La reserva fue cancelada. Si pagaste, contacta al estudio para coordinar la devolución.'
                   : status === 'EXPIRED'
-                    ? 'El bloqueo del horario venció. Si pagaste, contacta al salón antes de reservar de nuevo.'
+                    ? 'El bloqueo del horario venció. Si pagaste, contacta al estudio antes de reservar de nuevo.'
                     : 'Mercado Pago puede tardar unos momentos en notificar el resultado. No cierres esta página si quieres revisar el estado.'}
           </p>
 
           {/* Reservation summary */}
           {detail && (confirmed || review) && (
-            <dl className="text-left space-y-3 text-sm bg-[#f7f5f0] p-5 mb-7">
-              <div className="flex justify-between gap-4 border-b pb-2">
-                <dt className="text-[#77796f]">Cliente</dt>
-                <dd className="font-medium">{detail.customerName}</dd>
+            <dl className="text-left space-y-3 text-sm bg-[#12141b] border border-[#252834] rounded-xl p-5 mb-7">
+              <div className="flex justify-between gap-4 border-b border-[#252834] pb-2.5">
+                <dt className="text-[#9498a6]">Cliente</dt>
+                <dd className="font-semibold">{detail.customerName}</dd>
               </div>
-              <div className="flex justify-between gap-4 border-b pb-2">
-                <dt className="text-[#77796f] flex items-center gap-1"><Scissors size={13} /> Servicio</dt>
-                <dd className="font-medium">{detail.serviceName}</dd>
+              <div className="flex justify-between gap-4 border-b border-[#252834] pb-2.5">
+                <dt className="text-[#9498a6] flex items-center gap-1.5">
+                  <Scissors size={13} style={{ color: 'var(--brand)' }} /> Servicio
+                </dt>
+                <dd className="font-semibold">{detail.serviceName}</dd>
               </div>
-              <div className="flex justify-between gap-4 border-b pb-2">
-                <dt className="text-[#77796f]">Profesional</dt>
-                <dd className="font-medium">{detail.professional.name}</dd>
+              <div className="flex justify-between gap-4 border-b border-[#252834] pb-2.5">
+                <dt className="text-[#9498a6]">Profesional</dt>
+                <dd className="font-semibold">{detail.professional.name}</dd>
               </div>
-              <div className="flex justify-between gap-4 border-b pb-2">
-                <dt className="text-[#77796f] flex items-center gap-1"><CalendarDays size={13} /> Fecha</dt>
-                <dd className="font-medium text-right">{fmt(detail.startsAt, detail.timeZone)}</dd>
+              <div className="flex justify-between gap-4 border-b border-[#252834] pb-2.5">
+                <dt className="text-[#9498a6] flex items-center gap-1.5">
+                  <CalendarDays size={13} style={{ color: 'var(--brand)' }} /> Fecha
+                </dt>
+                <dd className="font-semibold text-right">{fmt(detail.startsAt, detail.timeZone)}</dd>
               </div>
               <div className="flex justify-between gap-4">
-                <dt className="text-[#77796f]">Importe</dt>
-                <dd className="font-bold">{money(detail.priceSnapshot)}</dd>
+                <dt className="text-[#9498a6]">Importe</dt>
+                <dd className="serif font-bold" style={{ color: 'var(--brand)' }}>
+                  {money(detail.priceSnapshot)}
+                </dd>
               </div>
             </dl>
           )}
@@ -167,7 +174,7 @@ export default function ResultPage() {
           {/* Contact when review */}
           {review && (contactPhone || contactEmail) && (
             <div className="status-info mb-7 text-left text-sm">
-              Para consultas sobre tu pago contacta directamente al salón:{' '}
+              Para consultas sobre tu pago contacta directamente al estudio:{' '}
               {contactPhone && (
                 <a href={`tel:${contactPhone}`} className="font-semibold underline">
                   {contactPhone}
@@ -199,7 +206,7 @@ export default function ResultPage() {
               Ver mi reserva
             </Link>
             <Link href="/" className="btn-dark inline-block">
-              Volver al salón
+              Volver al estudio
             </Link>
           </div>
         </div>

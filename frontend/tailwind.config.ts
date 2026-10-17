@@ -3,7 +3,10 @@ const config: Config = {
   content: ['./src/**/*.{js,ts,jsx,tsx,mdx}'],
   theme: {
     extend: {
-      fontFamily: { sans: ['Arial', 'Helvetica', 'sans-serif'], serif: ['Georgia', 'serif'] },
+      fontFamily: {
+        sans: ['"Plus Jakarta Sans"', 'system-ui', '-apple-system', 'sans-serif'],
+        serif: ['"Space Grotesk"', 'system-ui', 'sans-serif'],
+      },
     },
   },
   plugins: [],

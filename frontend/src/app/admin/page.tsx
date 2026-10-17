@@ -558,9 +558,9 @@ export default function Admin() {
     DateTime.fromISO(iso).setZone(salon?.timeZone || 'America/Santiago').toFormat('dd/MM/yyyy HH:mm');
 
   const agendaColor: Record<string, string> = {
-    CONFIRMED: 'bg-[#e8f0e8] border-[#567857]',
-    PAYMENT_REVIEW: 'bg-[#fdf3ed] border-[#c67a4d]',
-    PENDING_PAYMENT: 'bg-[#f5f5ef] border-[#aaa]',
+    CONFIRMED: 'bg-[#132620] border-[#34d399]',
+    PAYMENT_REVIEW: 'bg-[#291e14] border-[#f59e0b]',
+    PENDING_PAYMENT: 'bg-[#1a1d26] border-[#64748b]',
   };
 
   return (
@@ -867,7 +867,7 @@ export default function Admin() {
                                       type="button"
                                       key={slot}
                                       onClick={() => setRescheduleSlots((prev) => ({ ...prev, [r.id + ':hour']: slot }))}
-                                      className={`py-2 text-sm border transition-colors ${rescheduleSlots[r.id + ':hour'] === slot ? 'bg-[#292a25] text-white border-[#292a25]' : 'bg-white border-[#dad6cc] hover:border-[#86745c]'}`}
+                                      className={`py-2 text-sm font-semibold rounded-lg border transition-colors ${rescheduleSlots[r.id + ':hour'] === slot ? 'bg-[var(--brand)] text-[#0f1014] border-[var(--brand)]' : 'bg-[#111318] text-[#f4f4f6] border-[#2b2f3d] hover:border-[var(--brand)]'}`}
                                     >
                                       {slot}
                                     </button>
@@ -878,7 +878,7 @@ export default function Admin() {
                             </Form>
                           )}
                           {(rescheduleSlots[r.id] as string[])?.length === 0 && rescheduleSlotDate[r.id] && rescheduleLoadingId !== r.id && (
-                            <p className="text-sm text-[#77796f]">No hay horas disponibles ese día.</p>
+                            <p className="text-sm text-[#9498a6]">No hay horas disponibles ese día.</p>
                           )}
                         </div>
                       </details>
@@ -989,11 +989,11 @@ export default function Admin() {
                         <h3 className="serif text-2xl mb-3">{prof.name}</h3>
                         <div className="space-y-2">
                           {profRes.map((r) => (
-                            <div key={r.id} className={`border-l-4 p-4 ${agendaColor[r.status] || 'bg-white border-[#ccc]'}`}>
+                            <div key={r.id} className={`border-l-4 rounded-r-lg p-4 ${agendaColor[r.status] || 'bg-[#171920] border-[#3b4052]'}`}>
                               <div className="flex flex-wrap justify-between gap-2">
                                 <div>
                                   <p className="font-semibold">{r.customerName} — {r.serviceName}</p>
-                                  <p className="text-xs text-[#77796f]">{fmtDT(r.startsAt)} → {DateTime.fromISO(r.endsAt).setZone(salon?.timeZone || 'America/Santiago').toFormat('HH:mm')}</p>
+                                  <p className="text-xs text-[#9498a6]">{fmtDT(r.startsAt)} → {DateTime.fromISO(r.endsAt).setZone(salon?.timeZone || 'America/Santiago').toFormat('HH:mm')}</p>
                                 </div>
                                 <div className="text-right">
                                   <p className="text-xs">{STATUS_LABEL[r.status]}</p>
@@ -1003,9 +1003,9 @@ export default function Admin() {
                             </div>
                           ))}
                           {profBlocks.map((b) => (
-                            <div key={b.id} className="border-l-4 border-[#c49b79] bg-[#fdf8f2] p-4">
-                              <p className="font-semibold text-[#9a6b3a]">🔒 Bloqueo: {b.reason}</p>
-                              <p className="text-xs text-[#77796f]">{fmtDT(b.startsAt)} → {fmtDT(b.endsAt)}</p>
+                            <div key={b.id} className="border-l-4 border-[#d97757] bg-[#241917] rounded-r-lg p-4">
+                              <p className="font-semibold text-[#f3a68e]">🔒 Bloqueo: {b.reason}</p>
+                              <p className="text-xs text-[#9498a6]">{fmtDT(b.startsAt)} → {fmtDT(b.endsAt)}</p>
                             </div>
                           ))}
                         </div>
