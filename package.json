@@ -41,7 +41,7 @@
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
     "@types/luxon": "^3.4.2",
-    "@types/node": "^22.0.0",
+    "@types/node": "^22.20.5",
     "@types/nodemailer": "^7.0.0",
     "prettier": "3.6.2",
     "prisma": "^6.15.0",
