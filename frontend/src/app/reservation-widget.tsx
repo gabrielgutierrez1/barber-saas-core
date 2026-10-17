@@ -155,9 +155,33 @@ export function BookingWidget({ salon, services }: { salon: Salon; services: Sal
     <div>
       <div className="grid md:grid-cols-3 gap-5 mb-16">
         {services.length === 0 ? (
-          <div className="surface p-8 md:col-span-3 text-[#9498a6]">
-            Aún no hay servicios publicados.
-          </div>
+          <section
+            id="reservar"
+            aria-labelledby="booking-unavailable-title"
+            className="surface scroll-mt-8 p-8 md:col-span-3"
+          >
+            <h3 id="booking-unavailable-title" className="serif text-3xl mb-3">
+              Reservas aún no disponibles
+            </h3>
+            <p className="text-[#77796f] leading-7">
+              Aún no hay servicios publicados para reservar en línea.
+              {salon.contactPhone || salon.contactEmail
+                ? ' Contáctanos para coordinar tu visita.'
+                : ' Vuelve a consultar más adelante.'}
+            </p>
+            <div className="flex flex-wrap gap-4 mt-5">
+              {salon.contactPhone && (
+                <a href={`tel:${salon.contactPhone}`} className="btn-outline">
+                  Llamar al salón
+                </a>
+              )}
+              {salon.contactEmail && (
+                <a href={`mailto:${salon.contactEmail}`} className="btn-outline">
+                  Escribir al salón
+                </a>
+              )}
+            </div>
+          </section>
         ) : (
           services.map((service, index) => {
             const isSelected = selected === service.id;
