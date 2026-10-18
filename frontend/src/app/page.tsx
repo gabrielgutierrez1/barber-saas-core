@@ -88,6 +88,7 @@ export default async function Home() {
   const hasPolicies = content.cancellationPolicy || content.privacyPolicy;
   const hasFaqs = content.faqs.length > 0;
   const hasTeam = professionals.length > 0;
+  const hasGallery = content.gallery.length > 0;
 
   return (
     <main style={brandStyle}>
@@ -116,6 +117,11 @@ export default async function Home() {
           {hasContact && (
             <a href="#contacto" className="nav-link hidden md:inline">
               Contacto
+            </a>
+          )}
+          {hasGallery && (
+            <a href="#galeria" className="nav-link hidden md:inline">
+              Galería
             </a>
           )}
           <Link href="/mi-reserva" className="nav-link hidden sm:inline">
@@ -199,6 +205,33 @@ export default async function Home() {
         </div>
         <BookingWidget salon={salon} services={services} />
       </section>
+
+      {hasGallery && (
+        <section id="galeria" aria-labelledby="gallery-title" className="shell py-20 lg:py-28">
+          <div className="mb-10">
+            <p className="mini-label mb-4" style={{ color: 'var(--brand)' }}>
+              NUESTRO TRABAJO
+            </p>
+            <h2 id="gallery-title" className="serif text-5xl lg:text-6xl">Galería</h2>
+          </div>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {content.gallery.map((item, index) => (
+              <figure key={`${item.url}-${index}`} className="surface overflow-hidden">
+                <img
+                  src={item.url}
+                  alt={item.caption}
+                  loading="lazy"
+                  decoding="async"
+                  className="aspect-[4/5] w-full object-cover"
+                />
+                <figcaption className="p-5 text-sm text-[#626358]">
+                  {item.caption}
+                </figcaption>
+              </figure>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* ── Equipo ─────────────────────────────────────── */}
       {hasTeam && (
