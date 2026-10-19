@@ -153,7 +153,7 @@ export function BookingWidget({ salon, services }: { salon: Salon; services: Sal
   }
   return (
     <div>
-      <div className="grid md:grid-cols-3 gap-4 mb-16">
+      <div className="grid md:grid-cols-3 gap-5 mb-16">
         {services.length === 0 ? (
           <section
             id="reservar"
@@ -183,72 +183,87 @@ export function BookingWidget({ salon, services }: { salon: Salon; services: Sal
             </div>
           </section>
         ) : (
-          services.map((service, index) => (
-            <button
-              type="button"
-              aria-pressed={selected === service.id}
-              key={service.id}
-              onClick={() => {
-                setSelected(service.id);
-                document
-                  .getElementById('reservar')
-                  ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              }}
-              className={`surface p-7 text-left min-h-64 flex flex-col transition-colors hover:border-[#ae9b81] ${selected === service.id ? 'border-[#ae8c72] bg-[#faf4ea]' : 'bg-[#fffdfa]'}`}
-            >
-              <div className="flex items-center justify-between w-full mb-12">
-                <span className="text-[11px] tracking-[.15em] text-[#99978a]">
-                  0{index + 1} / SERVICIO
-                </span>
-                {index % 2 === 0 ? (
-                  <Scissors size={24} color="#ad875f" />
-                ) : (
-                  <Sparkles size={24} color="#ad875f" />
-                )}
-              </div>
-              <h3 className="serif text-[27px] leading-tight mb-3">{service.name}</h3>
-              <p className="text-[#898a80] text-sm leading-6 mb-8 flex-1">
-                {service.description || 'Atención personalizada.'}
-              </p>
-              <div className="border-t border-[#e5e0d6] pt-4 flex items-center justify-between w-full">
-                <span className="text-[#6f736a] text-xs">
-                  <Clock3 size={13} className="inline mr-1" />
-                  {service.durationMin} min
-                </span>
-                <strong className="text-base">{money(service.price)}</strong>
-              </div>
-            </button>
-          ))
+          services.map((service, index) => {
+            const isSelected = selected === service.id;
+            return (
+              <button
+                type="button"
+                aria-pressed={isSelected}
+                key={service.id}
+                onClick={() => {
+                  setSelected(service.id);
+                  document
+                    .getElementById('reservar')
+                    ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+                className={`surface p-7 text-left min-h-56 flex flex-col transition-all duration-200 ${
+                  isSelected
+                    ? 'border-[var(--brand)] bg-[#1d1818] shadow-[0_0_32px_-8px_rgba(217,119,87,0.35)]'
+                    : 'bg-[#171920] hover:border-[#3c4154]'
+                }`}
+              >
+                <div className="flex items-center justify-between w-full mb-8">
+                  <span className="text-[11px] font-mono font-bold tracking-[.18em] px-2.5 py-1 rounded bg-[#21242f] text-[#b4b8c5]">
+                    0{index + 1} // SERVICIO
+                  </span>
+                  <span
+                    className="w-10 h-10 rounded-lg flex items-center justify-center bg-[#21242f]"
+                    style={{ color: 'var(--brand)' }}
+                  >
+                    {index % 2 === 0 ? <Scissors size={20} /> : <Sparkles size={20} />}
+                  </span>
+                </div>
+                <h3 className="serif uppercase text-2xl leading-tight mb-2.5">{service.name}</h3>
+                <p className="text-[#9498a6] text-sm leading-6 mb-6 flex-1">
+                  {service.description || 'Atención personalizada con acabado profesional.'}
+                </p>
+                <div className="border-t border-[#282b37] pt-4 flex items-center justify-between w-full">
+                  <span className="text-[#9498a6] text-xs font-medium inline-flex items-center gap-1.5">
+                    <Clock3 size={14} style={{ color: 'var(--brand)' }} />
+                    {service.durationMin} min
+                  </span>
+                  <strong className="serif text-lg" style={{ color: isSelected ? 'var(--brand)' : 'var(--ink)' }}>
+                    {money(service.price)}
+                  </strong>
+                </div>
+              </button>
+            );
+          })
         )}
       </div>
       {services.length > 0 && (
         <section
           id="reservar"
-          className="scroll-mt-8 grid lg:grid-cols-[.8fr_1.2fr] bg-[#eeebe4] border border-[#e3ded3]"
+          className="scroll-mt-24 grid lg:grid-cols-[.82fr_1.18fr] surface overflow-hidden"
         >
-          <div className="p-8 md:p-12 lg:p-14 border-b lg:border-b-0 lg:border-r border-[#ddd7cb]">
-            <p className="mini-label mb-5" style={{ color: 'var(--brand)' }}>
-              AGENDA TU CITA
-            </p>
-            <h3 className="serif text-5xl leading-tight mb-6">
-              Un momento
-              <br />
-              <em>para ti.</em>
-            </h3>
-            <p className="text-[#73756c] leading-7 text-sm mb-9">
-              Elige un día, encuentra el horario ideal y confirma tu espacio.
-            </p>
-            <div className="bg-white/70 border border-[#e5ded1] p-5">
-              <p className="mini-label text-[#999285] mb-4">TU SELECCIÓN</p>
-              <h4 className="font-bold mb-2">{current?.name}</h4>
-              <div className="flex justify-between text-sm text-[#76776f]">
-                <span>{current?.durationMin} minutos</span>
-                <strong className="text-[#262721]">{money(current?.price || 0)}</strong>
+          <div className="p-8 md:p-12 lg:p-14 bg-[#13151b] border-b lg:border-b-0 lg:border-r border-[#282b37] flex flex-col justify-between">
+            <div>
+              <p className="mini-label mb-4">RESERVA ONLINE</p>
+              <h3 className="serif uppercase text-4xl sm:text-5xl leading-tight mb-5">
+                Asegura
+                <br />
+                <em>tu turno.</em>
+              </h3>
+              <p className="text-[#9498a6] leading-7 text-sm mb-8">
+                Elige tu barbero o estilista, selecciona el día y bloquea tu horario al instante.
+              </p>
+              <div className="bg-[#191c24] border border-[#2d3140] rounded-xl p-6">
+                <p className="mini-label mb-3">TU SELECCIÓN ACTUAL</p>
+                <h4 className="serif text-xl uppercase mb-3">{current?.name}</h4>
+                <div className="flex justify-between items-center text-sm text-[#9498a6] border-t border-[#282b37] pt-3">
+                  <span className="inline-flex items-center gap-1.5">
+                    <Clock3 size={14} style={{ color: 'var(--brand)' }} />
+                    {current?.durationMin} minutos
+                  </span>
+                  <strong className="serif text-lg text-[#f4f4f6]">
+                    {money(current?.price || 0)}
+                  </strong>
+                </div>
               </div>
             </div>
-            <p className="text-xs text-[#99978c] mt-6 leading-6">
-              <ShieldCheck size={15} className="inline mr-2" /> El pago y la confirmación final se
-              procesan de forma segura.
+            <p className="text-xs text-[#9498a6] mt-8 leading-6 flex items-center gap-2">
+              <ShieldCheck size={16} style={{ color: 'var(--brand)' }} className="shrink-0" />
+              El pago y la confirmación final se procesan de forma encriptada y segura.
             </p>
           </div>
           <form onSubmit={reserve} className="p-8 md:p-12 lg:p-14 space-y-7">
@@ -257,60 +272,64 @@ export function BookingWidget({ salon, services }: { salon: Salon; services: Sal
                 Tienes una reserva pendiente para {pending.payload.date} a las{' '}
                 {pending.payload.time}. Puedes reintentar el pago o cancelarla para elegir otra
                 hora.
-                <button
-                  type="button"
-                  className="underline block mt-2"
-                  disabled={loading}
-                  onClick={() => void release()}
-                >
-                  Cancelar esta reserva
-                </button>
-                <a className="underline block mt-2" href="/resultado">
-                  Consultar estado
-                </a>
+                <div className="flex flex-wrap gap-4 mt-3">
+                  <button
+                    type="button"
+                    className="underline font-semibold"
+                    disabled={loading}
+                    onClick={() => void release()}
+                  >
+                    Cancelar esta reserva
+                  </button>
+                  <a className="underline font-semibold" href="/resultado">
+                    Consultar estado
+                  </a>
+                </div>
               </div>
             )}
-            <fieldset disabled={!!pending || loading} className="space-y-7">
-              <div>
-                <label htmlFor="professional" className="field-label">
-                  Profesional
-                </label>
-                <select
-                  id="professional"
-                  className="input"
-                  value={professionalId}
-                  onChange={(e) => setProfessionalId(e.target.value)}
-                >
-                  <option value="">Selecciona un profesional</option>
-                  {professionals
-                    .filter((p) => p.services.some((s) => s.id === selected))
-                    .map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
+            <fieldset disabled={!!pending || loading} className="space-y-6">
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="book-service" className="field-label">
+                    01 — Servicio
+                  </label>
+                  <select
+                    id="book-service"
+                    value={selected}
+                    onChange={(e) => setSelected(e.target.value)}
+                    className="input"
+                  >
+                    {services.map((s) => (
+                      <option value={s.id} key={s.id}>
+                        {s.name} · {money(s.price)}
                       </option>
                     ))}
-                </select>
-              </div>
-              <div>
-                <label htmlFor="book-service" className="field-label">
-                  01 — Servicio
-                </label>
-                <select
-                  id="book-service"
-                  value={selected}
-                  onChange={(e) => setSelected(e.target.value)}
-                  className="input"
-                >
-                  {services.map((s) => (
-                    <option value={s.id} key={s.id}>
-                      {s.name} · {money(s.price)}
-                    </option>
-                  ))}
-                </select>
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="professional" className="field-label">
+                    02 — Profesional
+                  </label>
+                  <select
+                    id="professional"
+                    className="input"
+                    value={professionalId}
+                    onChange={(e) => setProfessionalId(e.target.value)}
+                  >
+                    <option value="">Selecciona un profesional</option>
+                    {professionals
+                      .filter((p) => p.services.some((s) => s.id === selected))
+                      .map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                  </select>
+                </div>
               </div>
               <div>
                 <label htmlFor="book-date" className="field-label">
-                  02 — Selecciona un día
+                  03 — Selecciona un día
                 </label>
                 <input
                   required
@@ -323,25 +342,34 @@ export function BookingWidget({ salon, services }: { salon: Salon; services: Sal
                 />
               </div>
               <div>
-                <span className="field-label">03 — Horas disponibles</span>
+                <span className="field-label">04 — Horas disponibles</span>
                 {loadingSlots ? (
-                  <p className="text-sm text-[#76776e]">Consultando horarios…</p>
+                  <p className="text-sm text-[#9498a6] bg-[#111318] border border-[#2b2f3d] rounded-lg p-4">
+                    Consultando horarios disponibles…
+                  </p>
                 ) : slots.length ? (
-                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                    {slots.map((slot) => (
-                      <button
-                        type="button"
-                        key={slot}
-                        onClick={() => setHour(slot)}
-                        aria-pressed={hour === slot}
-                        className={`py-3 text-sm border transition-colors ${hour === slot ? 'bg-[#292a25] text-white border-[#292a25]' : 'bg-white border-[#dad6cc] hover:border-[#86745c]'}`}
-                      >
-                        {slot}
-                      </button>
-                    ))}
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2.5">
+                    {slots.map((slot) => {
+                      const active = hour === slot;
+                      return (
+                        <button
+                          type="button"
+                          key={slot}
+                          onClick={() => setHour(slot)}
+                          aria-pressed={active}
+                          className={`py-3 text-sm font-semibold rounded-lg border transition-all ${
+                            active
+                              ? 'bg-[var(--brand)] text-[#0f1014] border-[var(--brand)] shadow-[0_4px_16px_rgba(217,119,87,0.4)]'
+                              : 'bg-[#111318] text-[#f4f4f6] border-[#2b2f3d] hover:border-[var(--brand)]'
+                          }`}
+                        >
+                          {slot}
+                        </button>
+                      );
+                    })}
                   </div>
                 ) : (
-                  <p className="text-sm text-[#77796f] bg-white p-4">
+                  <p className="text-sm text-[#9498a6] bg-[#111318] border border-[#2b2f3d] rounded-lg p-4">
                     No hay horas disponibles ese día. Prueba otra fecha.
                   </p>
                 )}
@@ -349,14 +377,14 @@ export function BookingWidget({ salon, services }: { salon: Salon; services: Sal
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="book-name" className="field-label">
-                    04 — Tu nombre
+                    05 — Tu nombre
                   </label>
                   <input
                     id="book-name"
                     className="input"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="Nombre completo"
+                    placeholder="Nombre y apellido"
                     minLength={2}
                     maxLength={100}
                     required
@@ -380,7 +408,7 @@ export function BookingWidget({ salon, services }: { salon: Salon; services: Sal
               </div>
               <div>
                 <label htmlFor="book-email" className="field-label">
-                  05 — Correo electrónico
+                  06 — Correo electrónico
                 </label>
                 <input
                   id="book-email"
@@ -388,7 +416,7 @@ export function BookingWidget({ salon, services }: { salon: Salon; services: Sal
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="hola@correo.cl"
+                  placeholder="tu@correo.cl"
                   maxLength={180}
                   required
                   autoComplete="email"
@@ -410,9 +438,8 @@ export function BookingWidget({ salon, services }: { salon: Salon; services: Sal
               </span>
               <ArrowRight size={17} />
             </button>
-            <p className="text-xs text-[#858579] leading-6 text-center">
-              Tu horario se mantiene provisionalmente por 15 minutos. Queda confirmado una vez
-              verificado el pago.
+            <p className="text-xs text-[#9498a6] leading-6 text-center">
+              Tu horario se bloquea por 15 minutos mientras completas el pago.
             </p>
           </form>
         </section>

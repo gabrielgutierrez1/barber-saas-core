@@ -2,7 +2,7 @@ import type { MetadataRoute } from 'next';
 export const dynamic = 'force-dynamic';
 export default async function manifest(): Promise<MetadataRoute.Manifest> {
   let name = 'Mi peluquería',
-    color = '#bb865d';
+    color = '#d97757';
   try {
     const r = await fetch(
       `${process.env.API_SERVER_URL || 'http://localhost:4000'}/api/public/info`,
@@ -21,7 +21,7 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
     description: `Reservas en ${name}`,
     start_url: '/',
     display: 'standalone',
-    background_color: '#f7f5f0',
+    background_color: '#0f1014',
     theme_color: color,
     lang: 'es',
     icons: [

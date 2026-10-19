@@ -188,55 +188,66 @@ export default function MyReservationPage() {
     new Date(iso).toLocaleString('es-CL', { timeZone, dateStyle: 'full', timeStyle: 'short' });
 
   const statusIcon = (s: Status) => {
-    if (s === 'CONFIRMED') return <CheckCircle2 size={40} color="#567857" />;
-    if (s === 'PAYMENT_REVIEW') return <AlertCircle size={40} color="#9b624d" />;
-    return <Clock3 size={40} color="#ad835e" />;
+    if (s === 'CONFIRMED') return <CheckCircle2 size={38} color="#34d399" />;
+    if (s === 'PAYMENT_REVIEW') return <AlertCircle size={38} color="#f59e0b" />;
+    return <Clock3 size={38} color="#d97757" />;
   };
 
   return (
     <main className="min-h-screen flex flex-col">
-      <header className="shell w-full py-8 flex items-center justify-between">
-        <Link href="/" className="brand-script">
-          {salonName}
-        </Link>
-        <Link href="/" className="nav-link">
-          <ArrowLeft size={15} className="inline mr-2" />
-          Volver al salón
-        </Link>
+      <header className="border-b border-[#252834] bg-[#0f1014]/85 backdrop-blur-md">
+        <div className="shell w-full py-6 flex items-center justify-between">
+          <Link href="/" className="brand-script">
+            {salonName}
+            <span style={{ color: 'var(--brand)' }}>.</span>
+          </Link>
+          <Link href="/" className="nav-link inline-flex items-center">
+            <ArrowLeft size={15} className="mr-2" />
+            Volver al estudio
+          </Link>
+        </div>
       </header>
 
-      <div className="flex-1 shell py-10 max-w-2xl mx-auto w-full">
-        {busy && <p className="text-center text-[#77796f] py-10">Cargando…</p>}
+      <div className="flex-1 shell py-12 max-w-2xl mx-auto w-full">
+        {busy && <p className="text-center text-[#9498a6] py-10">Cargando…</p>}
 
         {/* ── Reservation detail ─────────────────────── */}
         {!busy && detail && (
           <div className="surface p-8 md:p-12">
-            <div className="mx-auto mb-6 w-16 h-16 bg-[#e9eee5] rounded-full flex items-center justify-center">
+            <div className="mx-auto mb-6 w-16 h-16 bg-[#20232e] border border-[#2d3140] rounded-2xl flex items-center justify-center">
               {statusIcon(detail.status)}
             </div>
-            <p className="mini-label text-center mb-3" style={{ color: '#a17c59' }}>TU RESERVA</p>
-            <h1 className="serif text-4xl text-center mb-8">{STATUS_LABEL[detail.status] || detail.status}</h1>
+            <p className="mini-label text-center mb-3">TU RESERVA</p>
+            <h1 className="serif uppercase text-3xl sm:text-4xl text-center mb-8">
+              {STATUS_LABEL[detail.status] || detail.status}
+            </h1>
 
-            <dl className="space-y-4 text-sm">
-              <div className="flex justify-between gap-4 border-b pb-3">
-                <dt className="text-[#77796f]">Cliente</dt>
-                <dd className="font-medium text-right">{detail.customerName}</dd>
+            <dl className="space-y-4 text-sm bg-[#12141b] border border-[#252834] rounded-xl p-6">
+              <div className="flex justify-between gap-4 border-b border-[#252834] pb-3">
+                <dt className="text-[#9498a6]">Cliente</dt>
+                <dd className="font-semibold text-right">{detail.customerName}</dd>
               </div>
-              <div className="flex justify-between gap-4 border-b pb-3">
-                <dt className="text-[#77796f] flex items-center gap-2"><Scissors size={14} /> Servicio</dt>
-                <dd className="font-medium text-right">{detail.serviceName}</dd>
+              <div className="flex justify-between gap-4 border-b border-[#252834] pb-3">
+                <dt className="text-[#9498a6] flex items-center gap-2">
+                  <Scissors size={14} style={{ color: 'var(--brand)' }} /> Servicio
+                </dt>
+                <dd className="font-semibold text-right">{detail.serviceName}</dd>
               </div>
-              <div className="flex justify-between gap-4 border-b pb-3">
-                <dt className="text-[#77796f]">Profesional</dt>
-                <dd className="font-medium text-right">{detail.professional.name}</dd>
+              <div className="flex justify-between gap-4 border-b border-[#252834] pb-3">
+                <dt className="text-[#9498a6]">Profesional</dt>
+                <dd className="font-semibold text-right">{detail.professional.name}</dd>
               </div>
-              <div className="flex justify-between gap-4 border-b pb-3">
-                <dt className="text-[#77796f] flex items-center gap-2"><CalendarDays size={14} /> Fecha y hora</dt>
-                <dd className="font-medium text-right">{fmt(detail.startsAt)}</dd>
+              <div className="flex justify-between gap-4 border-b border-[#252834] pb-3">
+                <dt className="text-[#9498a6] flex items-center gap-2">
+                  <CalendarDays size={14} style={{ color: 'var(--brand)' }} /> Fecha y hora
+                </dt>
+                <dd className="font-semibold text-right">{fmt(detail.startsAt)}</dd>
               </div>
               <div className="flex justify-between gap-4">
-                <dt className="text-[#77796f]">Importe</dt>
-                <dd className="font-bold text-right">{money(detail.priceSnapshot)}</dd>
+                <dt className="text-[#9498a6]">Importe</dt>
+                <dd className="serif text-base font-bold text-right" style={{ color: 'var(--brand)' }}>
+                  {money(detail.priceSnapshot)}
+                </dd>
               </div>
             </dl>
 
@@ -248,7 +259,15 @@ export default function MyReservationPage() {
                 Tu pago está en revisión manual. No consideres el horario confirmado hasta recibir
                 respuesta.{' '}
                 {(contactPhone || contactEmail) && (
-                  <>Contacto directo: {contactPhone && <strong>{contactPhone}</strong>}{contactPhone && contactEmail && ' · '}{contactEmail && <a className="underline" href={`mailto:${contactEmail}`}>{contactEmail}</a>}</>
+                  <>
+                    Contacto directo: {contactPhone && <strong>{contactPhone}</strong>}
+                    {contactPhone && contactEmail && ' · '}
+                    {contactEmail && (
+                      <a className="underline" href={`mailto:${contactEmail}`}>
+                        {contactEmail}
+                      </a>
+                    )}
+                  </>
                 )}
               </div>
             )}
@@ -265,26 +284,28 @@ export default function MyReservationPage() {
                   {showReschedule ? 'Cerrar reprogramación' : 'Reprogramar cita'}
                 </button>
                 {showReschedule && (
-                  <form onSubmit={doReschedule} className="surface p-6 space-y-5">
-                    <h2 className="serif text-2xl mb-2">Nueva fecha</h2>
+                  <form onSubmit={doReschedule} className="bg-[#12141b] border border-[#282b37] rounded-xl p-6 space-y-5">
+                    <h2 className="serif uppercase text-2xl mb-2">Nueva fecha</h2>
                     <label className="block text-sm">
-                      Profesional
+                      <span className="field-label">Profesional</span>
                       <select
-                        className="input mt-2"
+                        className="input"
                         value={rescheduleProId}
                         onChange={(e) => setRescheduleProId(e.target.value)}
                       >
                         {professionals
                           .filter((p) => p.services.some((s) => s.id === detail.serviceId))
                           .map((p) => (
-                            <option key={p.id} value={p.id}>{p.name}</option>
+                            <option key={p.id} value={p.id}>
+                              {p.name}
+                            </option>
                           ))}
                       </select>
                     </label>
                     <label className="block text-sm">
-                      Fecha
+                      <span className="field-label">Fecha</span>
                       <input
-                        className="input mt-2"
+                        className="input"
                         type="date"
                         required
                         min={new Date().toLocaleDateString('en-CA', { timeZone })}
@@ -294,9 +315,9 @@ export default function MyReservationPage() {
                     </label>
                     {rescheduleDate && (
                       <div>
-                        <span className="text-sm text-[#77796f] block mb-2">Horas disponibles</span>
+                        <span className="field-label">Horas disponibles</span>
                         {loadingSlots ? (
-                          <p className="text-sm text-[#77796f]">Consultando horarios…</p>
+                          <p className="text-sm text-[#9498a6]">Consultando horarios…</p>
                         ) : rescheduleSlots.length ? (
                           <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                             {rescheduleSlots.map((slot) => (
@@ -304,14 +325,18 @@ export default function MyReservationPage() {
                                 type="button"
                                 key={slot}
                                 onClick={() => setRescheduleHour(slot)}
-                                className={`py-3 text-sm border transition-colors ${rescheduleHour === slot ? 'bg-[#292a25] text-white border-[#292a25]' : 'bg-white border-[#dad6cc] hover:border-[#86745c]'}`}
+                                className={`py-3 text-sm font-semibold rounded-lg border transition-colors ${
+                                  rescheduleHour === slot
+                                    ? 'bg-[var(--brand)] text-[#0f1014] border-[var(--brand)]'
+                                    : 'bg-[#171920] text-[#f4f4f6] border-[#2b2f3d] hover:border-[var(--brand)]'
+                                }`}
                               >
                                 {slot}
                               </button>
                             ))}
                           </div>
                         ) : (
-                          <p className="text-sm text-[#77796f] bg-white p-4">
+                          <p className="text-sm text-[#9498a6] bg-[#171920] border border-[#2b2f3d] rounded-lg p-4">
                             No hay horas disponibles. Prueba otra fecha.
                           </p>
                         )}
@@ -327,7 +352,7 @@ export default function MyReservationPage() {
                   </form>
                 )}
                 <button
-                  className="underline text-sm text-[#77796f] w-full text-center"
+                  className="underline text-sm text-[#9498a6] hover:text-[#fca5a5] w-full text-center pt-2"
                   disabled={busy}
                   onClick={cancelReservation}
                 >
@@ -348,9 +373,9 @@ export default function MyReservationPage() {
 
         {/* ── Error fetching ─────────────────────────── */}
         {!busy && fetchErr && (
-          <div className="surface p-8 text-center">
+          <div className="surface p-8 text-center mb-6">
             <p role="alert" className="status-error mb-6">{fetchErr}</p>
-            <p className="text-sm text-[#77796f]">
+            <p className="text-sm text-[#9498a6]">
               Si llegaste desde un enlace de correo, verifica que no haya expirado (30 minutos).
             </p>
           </div>
@@ -358,47 +383,47 @@ export default function MyReservationPage() {
 
         {/* ── Recovery form ─────────────────────────── */}
         {!busy && !detail && (
-          <div className="space-y-8">
+          <div className="space-y-6">
             {!fetchErr && (
-              <div className="surface p-8 text-center text-[#77796f] text-sm">
-                No tienes una reserva guardada en este dispositivo.
+              <div className="surface p-6 text-center text-[#9498a6] text-sm">
+                No tienes una reserva activa guardada en este dispositivo.
               </div>
             )}
-            <div className="surface p-8">
-              <h2 className="serif text-3xl mb-2">Recuperar acceso</h2>
-              <p className="text-sm text-[#77796f] mb-6">
-                Ingresa tu número de reserva y correo. Te enviaremos un enlace privado válido por
-                30 minutos.
+            <div className="surface p-8 md:p-10">
+              <p className="mini-label mb-2">PORTAL CLIENTE</p>
+              <h2 className="serif uppercase text-3xl mb-3">Consultar mi reserva</h2>
+              <p className="text-sm text-[#9498a6] mb-7 leading-6">
+                Ingresa el código de tu reserva (enviado a tu correo) y tu dirección de email. Te enviaremos un enlace de acceso directo.
               </p>
               {recoverSent ? (
                 <p role="status" className="status-info">
                   Si los datos coinciden, recibirás un correo con el enlace de acceso en breve.
                 </p>
               ) : (
-                <form onSubmit={handleRecover} className="space-y-4">
+                <form onSubmit={handleRecover} className="space-y-5">
                   <label className="block text-sm">
-                    Número de reserva (UUID)
+                    <span className="field-label">Código de reserva</span>
                     <input
-                      className="input mt-2"
+                      className="input"
                       required
-                      placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                      placeholder="Ej: a1b2c3d4-e5f6-..."
                       value={recoverResId}
                       onChange={(e) => setRecoverResId(e.target.value)}
                     />
                   </label>
                   <label className="block text-sm">
-                    Correo electrónico con el que reservaste
+                    <span className="field-label">Correo electrónico con el que reservaste</span>
                     <input
-                      className="input mt-2"
+                      className="input"
                       type="email"
                       required
                       value={recoverEmail}
                       onChange={(e) => setRecoverEmail(e.target.value)}
-                      placeholder="hola@correo.cl"
+                      placeholder="tu@correo.cl"
                     />
                   </label>
                   {recoverError && <p role="alert" className="status-error">{recoverError}</p>}
-                  <button className="btn-dark" type="submit" disabled={recoverBusy}>
+                  <button className="btn-dark w-full sm:w-auto" type="submit" disabled={recoverBusy}>
                     {recoverBusy ? 'Enviando…' : 'Enviar enlace de acceso'}
                   </button>
                 </form>
@@ -408,7 +433,7 @@ export default function MyReservationPage() {
         )}
       </div>
 
-      <footer className="shell py-10 text-center text-xs text-[#898b82]">
+      <footer className="shell py-10 text-center text-xs text-[#9498a6]">
         © 2026 · {salonName}
       </footer>
     </main>
