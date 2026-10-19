@@ -2,7 +2,7 @@
 import { FormEvent, ReactNode, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { DateTime } from 'luxon';
-import { apiFetch, money, Salon, SalonService } from '../../lib/types';
+import { apiFetch, imageUrl, money, Salon, SalonService } from '../../lib/types';
 
 type Professional = {
   id: string;
@@ -1556,17 +1556,45 @@ export default function Admin() {
 
                   <div className="surface p-6 space-y-4">
                     <h2 className="serif text-2xl">Galería</h2>
+                    <p className="text-sm text-[#77796f]">Sube una foto JPG, PNG o WebP de hasta 5 MB, o pega su enlace directo. Después pulsa Guardar contenido.</p>
                     {galleryItems.map((g, i) => (
                       <div key={i} className="border p-4 space-y-2">
+                        <label className="block text-sm">
+                          Subir imagen desde tu equipo
+                          <input
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            className="block w-full mt-2"
+                            disabled={busy}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              e.target.value = '';
+                              if (!file) return;
+                              void run(async () => {
+                                if (file.size > 5 * 1024 * 1024) throw new Error('La imagen debe pesar como máximo 5 MB');
+                                const form = new FormData();
+                                form.append('file', file);
+                                const uploaded = await apiFetch<{ url: string }>('/api/admin/images', {
+                                  method: 'POST', headers: headers(), body: form,
+                                });
+                                setGalleryItems((prev) => prev.map((item, j) => j === i ? { ...item, url: uploaded.url } : item));
+                                setNotice('Imagen subida. Agrega una descripción y pulsa Guardar contenido.');
+                              });
+                            }}
+                          />
+                        </label>
+                        {g.url && <img src={imageUrl(g.url)} alt={g.caption || 'Vista previa de la imagen'} className="max-h-48 max-w-full object-contain" />}
                         <input
                           className="input"
                           placeholder="URL HTTPS de la imagen"
+                          aria-label="Enlace de la imagen"
                           value={g.url}
                           onChange={(e) => setGalleryItems((prev) => prev.map((item, j) => j === i ? { ...item, url: e.target.value } : item))}
                         />
                         <input
                           className="input"
                           placeholder="Descripción"
+                          aria-label="Descripción de la imagen"
                           value={g.caption}
                           onChange={(e) => setGalleryItems((prev) => prev.map((item, j) => j === i ? { ...item, caption: e.target.value } : item))}
                         />

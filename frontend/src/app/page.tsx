@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { BookingWidget } from './reservation-widget';
 import type { SalonService, Salon } from '../lib/types';
+import { imageUrl } from '../lib/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -123,6 +124,11 @@ export default async function Home() {
             <a href="#servicios" className="nav-link hidden md:inline">
               Servicios
             </a>
+            {hasGallery && (
+              <a href="#galeria" className="nav-link hidden md:inline">
+                Galería
+              </a>
+            )}
             {hasTeam && (
               <a href="#equipo" className="nav-link hidden md:inline">
                 Equipo
@@ -312,21 +318,23 @@ export default async function Home() {
 
       {/* ── Galería (si existe) ────────────────────────── */}
       {hasGallery && (
-        <section id="galeria" className="py-20 lg:py-28 border-t border-[#222530]">
+        <section id="galeria" aria-labelledby="gallery-title" className="py-20 lg:py-28 border-t border-[#222530]">
           <div className="shell">
             <div className="mb-12">
               <p className="mini-label mb-3">PORTAFOLIO</p>
-              <h2 className="serif uppercase text-4xl sm:text-5xl lg:text-6xl">
+              <h2 id="gallery-title" className="serif uppercase text-4xl sm:text-5xl lg:text-6xl">
                 Nuestro <em>trabajo.</em>
               </h2>
             </div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {content.gallery.map((item, i) => (
-                <figure key={i} className="surface overflow-hidden group">
+                <figure key={`${item.url}-${i}`} className="surface overflow-hidden group">
                   <div className="aspect-[4/3] overflow-hidden bg-[#111318]">
                     <img
-                      src={item.url}
+                      src={imageUrl(item.url)}
                       alt={item.caption || 'Trabajo del estudio'}
+                      loading="lazy"
+                      decoding="async"
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                   </div>

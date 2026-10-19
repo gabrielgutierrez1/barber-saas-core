@@ -39,6 +39,10 @@ La base se llama `salon`; el usuario de aplicación `salon_app` no es superusuar
 
 ## Desarrollo local
 
+La galería admite enlaces HTTPS o archivos JPG, PNG y WebP de hasta 5 MB y 25 megapíxeles, subidos desde **Contenido web**. Después de subir una imagen, añade su descripción y guarda el contenido. Los archivos se convierten a WebP, sin metadatos, con un máximo de 1920 píxeles por lado. Solo el propietario puede subirlos.
+
+Docker conserva las imágenes en el volumen `salon_uploads`; inclúyelo en los respaldos junto con PostgreSQL. En desarrollo local se guardan en `uploads/` (o en `UPLOAD_DIR`). Quitar una imagen de la galería no borra el archivo almacenado.
+
 ```bash
 npm ci
 npm run db:generate
