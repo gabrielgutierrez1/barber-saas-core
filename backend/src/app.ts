@@ -17,6 +17,7 @@ import { ReservationsModule } from './modules/reservations/reservations';
 import { PaymentsModule } from './modules/payments/payments';
 import { NotificationsModule } from './modules/notifications/notifications';
 import { ExperienceModule } from './modules/experience/experience';
+import { ImagesModule } from './modules/experience/images';
 import { Prisma } from '@prisma/client';
 @Catch()
 export class ApiErrors implements ExceptionFilter {
@@ -60,6 +61,7 @@ class HealthController {
     AuthModule,
     CatalogModule,
     ExperienceModule,
+    ImagesModule,
     ReservationsModule,
     PaymentsModule,
     NotificationsModule,
