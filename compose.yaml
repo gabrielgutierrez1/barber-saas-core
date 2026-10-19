@@ -56,6 +56,8 @@ services:
       migrate: { condition: service_completed_successfully }
   backend:
     <<: *backend
+    volumes:
+      - salon_uploads:/srv/app/uploads
     ports: ['127.0.0.1:${API_PORT:-4000}:4000']
     healthcheck:
       test:
@@ -88,3 +90,4 @@ networks:
   private:
 volumes:
   salon_data:
+  salon_uploads:

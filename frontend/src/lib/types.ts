@@ -26,6 +26,7 @@ export const money = (value: number) =>
     maximumFractionDigits: 0,
   }).format(value);
 export const api = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+export const imageUrl = (url: string) => url.startsWith('/api/public/images/') ? `${api}${url}` : url;
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -37,7 +38,7 @@ export class ApiError extends Error {
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${api}${path}`, {
     ...init,
-    headers: { ...(init?.headers || {}), 'Content-Type': 'application/json' },
+    headers: { ...(init?.headers || {}), ...(init?.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }) },
     cache: 'no-store',
   });
   const data = await response.json().catch(() => ({ message: 'Error de conexión' }));

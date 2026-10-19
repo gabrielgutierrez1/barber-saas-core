@@ -45,6 +45,7 @@ logs/
 tmp/
 temp/
 backups/
+uploads/
 *.dump
 *.sql.gz
 

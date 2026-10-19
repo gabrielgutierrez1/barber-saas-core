@@ -5,7 +5,7 @@ export class FaqDto {
   @IsString() @MinLength(2) @MaxLength(2000) answer!: string;
 }
 export class GalleryDto {
-  @Matches(/^https:\/\/[^\s]+$/) @MaxLength(500) url!: string;
+  @Matches(/^(?:https:\/\/[^\s]+|\/api\/public\/images\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.webp)$/) @MaxLength(500) url!: string;
   @IsString() @MinLength(2) @MaxLength(200) caption!: string;
 }
 export class ContentDto {

@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { BookingWidget } from './reservation-widget';
 import type { SalonService, Salon } from '../lib/types';
+import { imageUrl } from '../lib/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -218,7 +219,7 @@ export default async function Home() {
             {content.gallery.map((item, index) => (
               <figure key={`${item.url}-${index}`} className="surface overflow-hidden">
                 <img
-                  src={item.url}
+                  src={imageUrl(item.url)}
                   alt={item.caption}
                   loading="lazy"
                   decoding="async"
