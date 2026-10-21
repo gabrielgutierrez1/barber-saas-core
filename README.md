@@ -33,7 +33,7 @@ docker compose --profile setup run --rm setup
 docker compose up -d backend frontend
 ```
 
-Abre `http://localhost:3000/admin`. Crea servicios y profesionales, asígnales servicios y horarios. Configura marca, datos de contacto y días de apertura. El catálogo inicial está vacío: no se crean peluquerías ni servicios de demostración. Repetir `setup` no cambia contraseñas ni configuración existente.
+Abre `http://localhost:3100/admin`. Crea servicios y profesionales, asígnales servicios y horarios. Configura marca, datos de contacto y días de apertura. El catálogo inicial está vacío: no se crean peluquerías ni servicios de demostración. Repetir `setup` no cambia contraseñas ni configuración existente.
 
 La base se llama `salon`; el usuario de aplicación `salon_app` no es superusuario. PostgreSQL no publica puertos. Los puertos web/API se enlazan a localhost; en producción usa un proxy HTTPS del mismo servidor. Consulta [despliegue](docs/deployment.md).
 
