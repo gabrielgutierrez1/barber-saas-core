@@ -11,11 +11,11 @@ test('valida fechas reales y respeta la zona del negocio', () => {
   assert.throws(() => localStart('2026-10-12', '10:00', 'Zona/Inexistente'));
   assert.equal(localStart('2026-10-12', '10:00', 'America/Santiago').toUTC().hour, 13);
 });
-test('solo una revisión con retención explícita ocupa el horario', () => {
+test('una revisión con pago aprobado sigue ocupando el horario', () => {
   const now = new Date('2026-10-12T12:00:00Z');
   assert.deepEqual(busyWhere(now).OR, [
     { status: 'CONFIRMED' },
     { status: 'PENDING_PAYMENT', expiresAt: { gt: now } },
-    { status: 'PAYMENT_REVIEW', reviewHoldsSlot: true },
+    { status: 'PAYMENT_REVIEW', approvedPaymentId: { not: null } },
   ]);
 });

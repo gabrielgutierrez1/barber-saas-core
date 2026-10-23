@@ -17,7 +17,9 @@ export function busyWhere(now = new Date()) {
     OR: [
       { status: 'CONFIRMED' as const },
       { status: 'PENDING_PAYMENT' as const, expiresAt: { gt: now } },
-      { status: 'PAYMENT_REVIEW' as const, reviewHoldsSlot: true },
+      // A paying customer keeps the slot while the owner resolves the review
+      // (duplicate payment, refund/chargeback or late approval).
+      { status: 'PAYMENT_REVIEW' as const, approvedPaymentId: { not: null } },
     ],
   };
 }

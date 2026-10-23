@@ -96,9 +96,6 @@ model Reservation {
   checkoutKey String @unique @default(uuid()) @db.Uuid
   preferenceId String? @unique
   checkoutUrl String?
-  checkoutLeaseToken String? @db.Uuid
-  checkoutStartedAt DateTime? @db.Timestamptz(3)
-  reviewHoldsSlot Boolean @default(false)
   checkoutLeaseUntil DateTime? @db.Timestamptz(3)
   legacyReference String? @unique
   approvedPaymentId String?
@@ -113,8 +110,7 @@ model PaymentAttempt {
   reservationId String @db.Uuid
   reservation Reservation @relation(fields:[reservationId], references:[id])
   status String
-  amount Decimal @db.Decimal(20, 6)
-  reviewRequired Boolean @default(false)
+  amount Int
   currency String
   providerUpdatedAt DateTime @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
