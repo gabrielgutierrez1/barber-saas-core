@@ -35,5 +35,12 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run test:integration
+      - run: npm run test:coverage
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: notification-coverage
+          path: coverage/
+          retention-days: 7
       - run: npm run build
       - run: node scripts/check-structure.mjs

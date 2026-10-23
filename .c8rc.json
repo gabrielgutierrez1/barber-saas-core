@@ -1,0 +1,16 @@
+{
+  "all": true,
+  "src": [
+    "backend/src/modules/notifications",
+    "backend/src/modules/auth",
+    "backend/src/modules/reservations"
+  ],
+  "include": [
+    "backend/src/modules/notifications/*.ts",
+    "backend/src/modules/auth/auth.ts",
+    "backend/src/modules/reservations/reservations.ts"
+  ],
+  "exclude-after-remap": true,
+  "reporter": ["text", "html", "lcov", "json-summary"],
+  "reports-dir": "coverage"
+}

@@ -64,3 +64,37 @@ test('escapa contenido y rechaza URLs y colores no seguros', () => {
   assert.match(html, /&lt;b&gt;Salón&lt;\/b&gt;/);
   assert.match(html, /#bb865d/);
 });
+
+test('no ofrece botones privados para rutas, protocolos o credenciales no autorizadas', () => {
+  for (const url of [
+    'https://salon.example/otra#reset=abc',
+    'https://user:password@salon.example/admin#reset=abc',
+    'javascript:alert(1)',
+    'not-a-url',
+  ]) {
+    const html = renderEmail(
+      { key: 'reset:test', subject: 'Acceso', text: `Abre ${url}` },
+      brand,
+      'https://salon.example',
+    );
+    assert.ok(!html.includes('Recuperar mi acceso'));
+  }
+  const html = renderEmail(
+    { key: 'reset:test', subject: 'Acceso', text: 'Sin enlace' },
+    { ...brand, logoUrl: null, contactEmail: '', contactPhone: '' },
+    'invalid',
+  );
+  assert.ok(!html.includes('<a '));
+  assert.ok(!html.includes('<img '));
+});
+
+test('escapa comillas, apóstrofes y contactos en los campos dinámicos', () => {
+  const html = renderEmail(
+    { key: 'booking:test', subject: '"Corte"', text: "O'Connor & <amigos>" },
+    { ...brand, contactEmail: '<correo>', contactPhone: '"tel"' },
+    'https://salon.example',
+  );
+  assert.match(html, /&quot;Corte&quot;/);
+  assert.match(html, /O&#39;Connor &amp; &lt;amigos&gt;/);
+  assert.match(html, /&lt;correo&gt; · &quot;tel&quot;/);
+});
