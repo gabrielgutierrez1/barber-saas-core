@@ -2,6 +2,7 @@ import { Injectable, Module, OnModuleDestroy, OnModuleInit } from '@nestjs/commo
 import nodemailer from 'nodemailer';
 import { DateTime } from 'luxon';
 import { Database, lock } from '../../common/database';
+import { renderEmail } from './email-template';
 @Injectable()
 export class NotificationsService implements OnModuleInit, OnModuleDestroy {
   private timer?: ReturnType<typeof setInterval>;
@@ -74,6 +75,7 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
             to: job.to,
             subject: job.subject,
             text: job.text,
+            html: renderEmail(job, salon, process.env.PUBLIC_WEB_URL!),
             messageId: `<${job.id}@${new URL(process.env.PUBLIC_WEB_URL!).hostname}>`,
           });
           await this.db.emailJob.update({

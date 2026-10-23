@@ -1,0 +1,30 @@
+# Solo desarrollo: docker compose -f compose.yaml -f compose.mailpit.yaml up -d mailpit-ui backend
+services:
+  mailpit:
+    image: axllent/mailpit:v1.27.4
+    ports:
+      - '127.0.0.1:1025:1025'
+    networks: [private]
+    restart: unless-stopped
+  mailpit-ui:
+    image: nginx:1.28-alpine
+    ports:
+      - '127.0.0.1:8025:8025'
+    volumes:
+      - ./docker/mailpit/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/mailpit/salon-theme.css:/usr/share/nginx/html/salon-theme.css:ro
+    depends_on:
+      mailpit: { condition: service_started }
+    networks: [private]
+    restart: unless-stopped
+  backend:
+    environment:
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      SMTP_SECURE: 'false'
+      SMTP_USER: ''
+      SMTP_PASSWORD: ''
+      SMTP_FROM: 'Mi peluquería <no-reply@salon.test>'
+      BACKGROUND_JOBS: 'true'
+    depends_on:
+      mailpit: { condition: service_started }
