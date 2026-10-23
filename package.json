@@ -11,13 +11,14 @@
     "build:backend": "tsc -p backend/tsconfig.json",
     "build:frontend": "npm run build --workspace frontend",
     "build": "npm run build:backend && npm run build:frontend",
-    "typecheck": "tsc -p backend/tsconfig.json --noEmit && tsc -p backend/test/tsconfig.json && tsc -p frontend/tsconfig.json --noEmit",
+    "typecheck": "npm run build:backend && tsc -p backend/tsconfig.json --noEmit && tsc -p backend/test/tsconfig.json && tsc -p frontend/tsconfig.json --noEmit",
     "db:generate": "prisma generate --schema backend/prisma/schema.prisma",
     "db:migrate": "prisma migrate deploy --schema backend/prisma/schema.prisma",
     "db:seed": "tsx backend/prisma/seed.ts",
     "test": "node --import tsx --test backend/test/*.test.ts",
     "test:integration": "npm run build:backend && node --import tsx --test backend/test/integration/*.test.ts",
-    "db:import-legacy": "tsx scripts/import-legacy.ts"
+    "db:import-legacy": "tsx scripts/import-legacy.ts",
+    "test:smtp": "npm run build:backend && node --import tsx --test backend/test/integration/email-delivery.test.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.0",

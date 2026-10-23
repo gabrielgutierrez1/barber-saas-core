@@ -2,48 +2,17 @@ import 'reflect-metadata';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
-import { PrismaClient } from '@prisma/client';
 import { DateTime } from 'luxon';
 import bcrypt from 'bcryptjs';
-import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { testApp } from '../helpers/test-app';
 
-test('instalación independiente: reservas, pagos y autenticación', async (t) => {
-  if (!process.env.TEST_DATABASE_URL)
-    throw new Error(
-      'Define TEST_DATABASE_URL de una base descartable; no se usa DATABASE_URL implícitamente',
-    );
-  process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
-  process.env.JWT_SECRET = 'test-only-secret-32-characters-long';
-  process.env.BACKGROUND_JOBS = 'false';
-  process.env.PUBLIC_WEB_URL = 'http://localhost:3000';
-  // Dynamic import after environment configuration; use compiled decorator metadata.
-  const { AppModule, ApiErrors } = await import('../../dist/app.js');
-  const { PaymentsService, PaymentProvider } = await import(
-    '../../dist/modules/payments/payments.js'
-  );
-  const { Database } = await import('../../dist/common/database.js');
-  const app = await NestFactory.create(AppModule, { logger: false });
-  app.useGlobalPipes(
-    new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
-  );
-  app.useGlobalFilters(new ApiErrors());
-  await app.listen(0, '127.0.0.1');
+test('instalación independiente: reservas, pagos y autenticación', { timeout: 90_000 }, async (t) => {
+  const { app, db } = await testApp(t);
+  const { PaymentsService, PaymentProvider } = await import('../../dist/modules/payments/payments.js');
   const url = await app.getUrl();
-  const db = app.get(Database) as PrismaClient;
-  t.after(async () => {
-    await app.close();
-  });
-  if (await db.salon.count()) throw new Error('La base de pruebas debe estar vacía');
-  await db.salon.create({
-    data: {
-      name: 'Salón de prueba',
-      timeZone: 'UTC',
-      workDays: [1, 2, 3, 4, 5, 6, 7],
-      openingHour: 0,
-      closingHour: 24,
-      contactEmail: 'test@example.com',
-    },
+  await db.salon.update({
+    where: { id: 1 },
+    data: { name: 'Salón de prueba', timeZone: 'UTC', contactEmail: 'test@example.com' },
   });
   const owner = await db.user.create({
     data: {
@@ -175,6 +144,11 @@ test('instalación independiente: reservas, pagos y autenticación', async (t) =
       updatedAt: new Date('2026-01-02'),
     });
     assert.equal(await db.emailJob.count(), 1);
+    const confirmation = await db.emailJob.findFirstOrThrow();
+    assert.equal(confirmation.to, firstBody.customerEmail);
+    assert.match(confirmation.subject, /Salón de prueba.*confirmada/i);
+    assert.ok(confirmation.text.includes(first.id));
+    assert.ok(confirmation.text.includes(`${date.slice(8)}/${date.slice(5, 7)}/${date.slice(0, 4)} 12:00`));
   });
   await t.test('un reembolso y eventos antiguos no revierten el estado', async () => {
     const amount = firstBody.serviceId === s1.id ? 12000 : 8000;

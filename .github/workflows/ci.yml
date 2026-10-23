@@ -3,6 +3,7 @@ on: [push, pull_request]
 jobs:
   verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     services:
       postgres:
         image: postgres:16-alpine
@@ -11,7 +12,14 @@ jobs:
           POSTGRES_DB: salon_test
         ports: ['5432:5432']
         options: --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+      mailpit:
+        image: axllent/mailpit:v1.27.4
+        ports: ['1025:1025', '8025:8025']
+        options: --health-cmd "/mailpit readyz" --health-interval 5s --health-timeout 5s --health-retries 10
     env:
+      SMTP_HOST: 127.0.0.1
+      SMTP_PORT: '1025'
+      MAILPIT_API_URL: http://127.0.0.1:8025
       DATABASE_URL: postgresql://postgres:ci-only-password@localhost:5432/salon_test
       TEST_DATABASE_URL: postgresql://postgres:ci-only-password@localhost:5432/salon_test
       NEXT_TELEMETRY_DISABLED: '1'
