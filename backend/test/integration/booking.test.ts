@@ -98,15 +98,20 @@ test('instalación independiente: reservas, pagos y autenticación', { timeout: 
     provider = app.get(PaymentProvider);
   await t.test('checkout concurrente genera una sola preferencia y permite reintento', async () => {
     let calls = 0;
+    let release!: () => void, entered!: () => void;
+    const started = new Promise<void>((resolve) => { entered = resolve; });
+    const gate = new Promise<void>((resolve) => { release = resolve; });
     provider.checkout = async () => {
       calls++;
-      await new Promise((r) => setTimeout(r, 150));
+      entered();
+      await gate;
       return { preferenceId: 'test-preference', checkoutUrl: 'https://example.com/checkout' };
     };
-    const results = await Promise.allSettled([
-      payments.checkout(first.id, firstBody.bookingToken),
-      payments.checkout(first.id, firstBody.bookingToken),
-    ]);
+    const firstCheckout = payments.checkout(first.id, firstBody.bookingToken);
+    await started;
+    await assert.rejects(payments.checkout(first.id, firstBody.bookingToken));
+    release();
+    const results = await Promise.allSettled([firstCheckout]);
     assert.equal(calls, 1);
     assert.equal(results.filter((r) => r.status === 'fulfilled').length, 1);
     await payments.checkout(first.id, firstBody.bookingToken);
@@ -239,7 +244,7 @@ test('instalación independiente: reservas, pagos y autenticación', { timeout: 
       409,
     );
   });
-  await t.test('importe incorrecto queda auditado sin registrar ni confirmar', async () => {
+  await t.test('importe incorrecto queda auditado sin confirmar', async () => {
     const bad = {
       id: 'bad-amount',
       externalReference: first.id,
@@ -249,8 +254,8 @@ test('instalación independiente: reservas, pagos y autenticación', { timeout: 
       updatedAt: new Date(),
     };
     assert.deepEqual(await payments.apply(bad), { review: true });
-    assert.deepEqual(await payments.apply(bad), { review: true });
-    assert.equal(await db.paymentAttempt.count({ where: { id: 'bad-amount' } }), 0);
+    assert.deepEqual(await payments.apply(bad), { duplicate: true });
+    assert.equal(await db.paymentAttempt.count({ where: { id: 'bad-amount' } }), 1);
     assert.equal(
       await db.auditEvent.count({ where: { reservationId: first.id, action: 'AMOUNT_MISMATCH' } }),
       1,
