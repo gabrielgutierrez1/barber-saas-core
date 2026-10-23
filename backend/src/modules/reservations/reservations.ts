@@ -186,6 +186,7 @@ export class ReservationsService {
     if (page < 1 || page > 100000) throw new BadRequestException('Página inválida');
     const now = new Date();
     return this.db.$transaction(async (tx) => {
+      await lock(tx, 'agenda');
       await tx.reservation.updateMany({
         where: { status: 'PENDING_PAYMENT', expiresAt: { lte: now } },
         data: { status: 'EXPIRED' },
@@ -205,6 +206,8 @@ export class ReservationsService {
             endsAt: true,
             status: true,
             priceSnapshot: true,
+            reviewHoldsSlot: true,
+            payments: { where: { reviewRequired: true }, select: { id: true } },
             serviceName: true,
             professionalId: true,
             service: { select: { id: true, name: true } },
@@ -223,7 +226,8 @@ export class ReservationsService {
       await lock(tx, 'agenda');
       const r = await tx.reservation.findUniqueOrThrow({ where: { id } });
       if (r.status === 'CANCELLED') return { ok: true };
-      await tx.reservation.update({ where: { id }, data: { status: 'CANCELLED' } });
+      await tx.reservation.update({ where: { id }, data: { status: 'CANCELLED', reviewHoldsSlot: false } });
+      const paid = await tx.paymentAttempt.updateMany({ where: { reservationId: id, status: 'approved' }, data: { reviewRequired: true } });
       await tx.emailJob.deleteMany({
         where: { key: { startsWith: `reminder:${id}:` }, sentAt: null },
       });
@@ -232,7 +236,7 @@ export class ReservationsService {
           actorId: actor,
           action: 'CANCEL',
           reservationId: id,
-          note: r.approvedPaymentId
+          note: paid.count > 0 || r.approvedPaymentId
             ? 'Requiere revisar devolución en Mercado Pago'
             : 'Sin pago aprobado registrado',
         },
@@ -277,20 +281,21 @@ export class ReservationsService {
     return this.db.$transaction(async (tx) => {
       await lock(tx, 'agenda');
       const r = await tx.reservation.findUniqueOrThrow({ where: { id } });
-      if (r.status !== 'PAYMENT_REVIEW')
+      if (r.status !== 'PAYMENT_REVIEW' && !(r.status === 'CANCELLED' && dto.status === 'CANCELLED'))
         throw new ConflictException('La reserva no está en revisión');
       if (dto.status === 'CONFIRMED') {
         if (
           !r.approvedPaymentId ||
           !(await tx.paymentAttempt.findFirst({
-            where: { id: r.approvedPaymentId, status: 'approved' },
+            where: { id: r.approvedPaymentId, status: 'approved', amount: r.priceSnapshot, currency: 'CLP' },
           }))
         )
           throw new ConflictException('No hay un pago aprobado vigente');
         if (r.startsAt <= new Date()) throw new ConflictException('Revisa una fecha futura');
         await this.assertFree(tx, r.professionalId, r.startsAt, r.endsAt, id);
       }
-      await tx.reservation.update({ where: { id }, data: { status: dto.status } });
+      await tx.reservation.update({ where: { id }, data: { status: dto.status, reviewHoldsSlot: false } });
+      await tx.paymentAttempt.updateMany({ where: { reservationId: id }, data: { reviewRequired: false } });
       await tx.auditEvent.create({
         data: { actorId: actor, action: `REVIEW_${dto.status}`, reservationId: id, note: dto.note },
       });
