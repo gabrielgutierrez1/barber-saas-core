@@ -86,12 +86,14 @@ Configura `SMTP_HOST`, puerto, usuario, contraseña y remitente para confirmacio
 Usamos [Mailpit](https://mailpit.axllent.org/docs/install/docker/) para capturar correos de desarrollo. No los entrega a destinatarios reales. Levanta el backend con la configuración local:
 
 ```bash
-docker compose -f compose.yaml -f compose.mailpit.yaml up -d mailpit backend
+docker compose -f compose.yaml -f compose.mailpit.yaml up -d --build mailpit-ui backend
 ```
 
-Abre la bandeja en <http://localhost:8025>. El backend procesa la cola cada 30 segundos; puedes probar la recuperación de contraseña de un usuario existente. Los correos pendientes también se procesarán. La bandeja es temporal y se pierde al recrear Mailpit.
+Abre la bandeja en <http://localhost:8025>. El backend procesa la cola cada 30 segundos; puedes probar la recuperación de contraseña de un usuario existente. Los correos pendientes también se procesarán. La bandeja es temporal y se pierde al recrear Mailpit. La interfaz usa un tema cálido servido por `mailpit-ui` (Nginx), compatible con los modos claro y oscuro. El CSS se encuentra en `docker/mailpit/salon-theme.css`; solo modifica la interfaz, no la vista previa del correo.
 
-Si ejecutas el backend con `npm run dev:backend`, levanta solo `mailpit` con esos mismos archivos Compose y usa estos valores en `.env`:
+Los correos incluyen una versión HTML con nombre, logo y color del salón, botones de acceso y datos de contacto. Conservan el texto plano como alternativa. La plantilla se aplica al enviar, también a los trabajos pendientes; los correos ya enviados no cambian.
+
+Si ejecutas el backend con `npm run dev:backend`, levanta solo `mailpit-ui` (también inicia Mailpit) con esos mismos archivos Compose y usa estos valores en `.env`:
 
 ```dotenv
 SMTP_HOST=127.0.0.1
@@ -119,7 +121,7 @@ SMTP_FROM="Mi peluquería <reservas@tu-dominio.cl>"
 BACKGROUND_JOBS=true
 ```
 
-Usa el login y la clave SMTP de Brevo (no la clave API) y un remitente verificado con el dominio autenticado. En el puerto 587, Nodemailer negocia STARTTLS con `SMTP_SECURE=false`. Aplica los cambios con `docker compose up -d backend`. Si reutilizas un entorno local, detén Mailpit con `docker compose -f compose.yaml -f compose.mailpit.yaml stop mailpit`.
+Usa el login y la clave SMTP de Brevo (no la clave API) y un remitente verificado con el dominio autenticado. En el puerto 587, Nodemailer negocia STARTTLS con `SMTP_SECURE=false`. Aplica los cambios con `docker compose up -d backend`. Si reutilizas un entorno local, detén Mailpit con `docker compose -f compose.yaml -f compose.mailpit.yaml stop mailpit-ui mailpit`.
 
 - [Arquitectura](docs/architecture.md)
 - [Despliegue, monitoreo y backups](docs/deployment.md)

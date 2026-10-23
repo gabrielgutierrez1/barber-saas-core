@@ -1,0 +1,70 @@
+/* Local Mailpit skin. Message previews live in an iframe and keep their own styles. */
+:root,
+[data-bs-theme='light'] {
+  --bs-body-font-family: 'Segoe UI', system-ui, sans-serif;
+  --bs-body-bg: #f6f3ee;
+  --bs-body-color: #292622;
+  --bs-primary: #93633f;
+  --bs-primary-rgb: 147, 99, 63;
+  --bs-link-color: #93633f;
+  --bs-link-hover-color: #704727;
+  --bs-border-color: #e2d9ce;
+  --bs-tertiary-bg: #eee8df;
+  --bs-secondary-bg: #eee8df;
+}
+[data-bs-theme='dark'] {
+  --bs-body-bg: #24221f;
+  --bs-body-color: #f0e9e0;
+  --bs-primary: #d4a47c;
+  --bs-primary-rgb: 212, 164, 124;
+  --bs-link-color: #d4a47c;
+  --bs-link-hover-color: #ebc8aa;
+  --bs-border-color: #494139;
+  --bs-tertiary-bg: #302b26;
+  --bs-secondary-bg: #302b26;
+}
+body {
+  font-family: var(--bs-body-font-family);
+}
+.navbar {
+  background: #24221f !important;
+  border-bottom: 3px solid #bb865d;
+}
+.navbar-brand {
+  color: #f5ede3 !important;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.btn-primary {
+  --bs-btn-bg: #93633f;
+  --bs-btn-border-color: #93633f;
+  --bs-btn-hover-bg: #704727;
+  --bs-btn-hover-border-color: #704727;
+  --bs-btn-active-bg: #704727;
+  --bs-btn-active-border-color: #704727;
+}
+.btn,
+.form-control,
+.form-select {
+  border-radius: 8px;
+}
+.form-control:focus,
+.form-select:focus {
+  border-color: #bb865d;
+  box-shadow: 0 0 0 3px #bb865d30;
+}
+.list-group-item.active {
+  background-color: #93633f;
+  border-color: #93633f;
+  color: #fff;
+}
+.nav-pills .nav-link.active {
+  background-color: #93633f;
+}
+.dropdown-menu {
+  border-radius: 12px;
+  box-shadow: 0 12px 32px #241c181c;
+}
+::selection {
+  background: #bb865d55;
+}

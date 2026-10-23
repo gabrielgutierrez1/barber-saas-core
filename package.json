@@ -11,7 +11,7 @@
     "build:backend": "tsc -p backend/tsconfig.json",
     "build:frontend": "npm run build --workspace frontend",
     "build": "npm run build:backend && npm run build:frontend",
-    "typecheck": "tsc -p backend/tsconfig.json --noEmit && tsc -p frontend/tsconfig.json --noEmit",
+    "typecheck": "tsc -p backend/tsconfig.json --noEmit && tsc -p backend/test/tsconfig.json && tsc -p frontend/tsconfig.json --noEmit",
     "db:generate": "prisma generate --schema backend/prisma/schema.prisma",
     "db:migrate": "prisma migrate deploy --schema backend/prisma/schema.prisma",
     "db:seed": "tsx backend/prisma/seed.ts",
