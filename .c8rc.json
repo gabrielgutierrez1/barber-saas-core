@@ -3,14 +3,21 @@
   "src": [
     "backend/src/modules/notifications",
     "backend/src/modules/auth",
-    "backend/src/modules/reservations"
+    "backend/src/modules/reservations",
+    "backend/src/modules/payments"
   ],
   "include": [
     "backend/src/modules/notifications/*.ts",
     "backend/src/modules/auth/auth.ts",
-    "backend/src/modules/reservations/reservations.ts"
+    "backend/src/modules/reservations/reservations.ts",
+    "backend/src/modules/payments/payments.ts"
   ],
   "exclude-after-remap": true,
-  "reporter": ["text", "html", "lcov", "json-summary"],
+  "reporter": [
+    "text",
+    "html",
+    "lcov",
+    "json-summary"
+  ],
   "reports-dir": "coverage"
 }
