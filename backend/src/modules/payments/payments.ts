@@ -203,15 +203,24 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
         r.status === 'CONFIRMED' ||
         (r.status === 'PAYMENT_REVIEW' && r.reviewHoldsSlot) ||
         effectiveStatus(r) === 'PENDING_PAYMENT';
+      const isReversed = ['refunded', 'charged_back'].includes(p.status);
+      const isPrimary = r.approvedPaymentId === p.id;
+      const reviewRequired =
+        p.status === 'approved'
+          ? mismatch ||
+            r.status === 'CANCELLED' ||
+            effectiveStatus(r) !== 'PENDING_PAYMENT' ||
+            Boolean(prior)
+          : isReversed
+            ? isPrimary && r.status !== 'CANCELLED'
+            : false;
       await tx.paymentAttempt.upsert({
         where: { id: p.id },
         create: {
           id: p.id,
           reservationId: r.id,
           status: p.status,
-          reviewRequired:
-            p.status === 'approved' &&
-            (mismatch || r.status === 'CANCELLED' || effectiveStatus(r) !== 'PENDING_PAYMENT'),
+          reviewRequired,
           amount: p.amount,
           currency: p.currency,
           providerUpdatedAt: p.updatedAt,
@@ -221,10 +230,13 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
           amount: p.amount,
           currency: p.currency,
           providerUpdatedAt: p.updatedAt,
-          reviewRequired: p.status === 'approved',
+          reviewRequired,
         },
       });
-      if (mismatch) {
+      if (
+        mismatch &&
+        (!prior || Number(prior.amount) !== p.amount || prior.currency !== p.currency)
+      ) {
         await tx.auditEvent.create({
           data: {
             actorId: 'provider',
@@ -313,24 +325,56 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
           r,
           status === 'CONFIRMED' ? 'Reserva confirmada' : 'Pago en revisión',
         );
-      } else if (['refunded', 'charged_back'].includes(p.status)) {
+      } else if (isReversed) {
+        await tx.auditEvent.create({
+          data: {
+            actorId: 'provider',
+            action: p.status === 'refunded' ? 'REFUND_RECORDED' : 'CHARGEBACK_RECORDED',
+            reservationId: r.id,
+            note: `Pago ${p.id}: ${p.status}`,
+          },
+        });
         if (r.status === 'CANCELLED') {
           // Expected outcome of a cancellation: record it, do not reopen the case.
-          await tx.auditEvent.create({
-            data: {
-              actorId: 'provider',
-              action: p.status === 'refunded' ? 'REFUND_RECORDED' : 'CHARGEBACK_RECORDED',
-              reservationId: r.id,
-              note: `Pago ${p.id}: ${p.status}`,
-            },
-          });
           await notifyReservation(tx, r, 'Devolución registrada');
-        } else {
+        } else if (isPrimary) {
           await tx.reservation.update({
             where: { id: r.id },
             data: { status: 'PAYMENT_REVIEW', reviewHoldsSlot: holds },
           });
           await notifyReservation(tx, r, 'Devolución o contracargo en revisión');
+        } else {
+          if (r.status === 'PAYMENT_REVIEW' && r.reviewHoldsSlot && r.approvedPaymentId) {
+            const validPrimary = await tx.paymentAttempt.findFirst({
+              where: {
+                id: r.approvedPaymentId,
+                reservationId: r.id,
+                status: 'approved',
+                amount: r.priceSnapshot,
+                currency: 'CLP',
+                reviewRequired: false,
+              },
+            });
+            const pendingReviews = await tx.paymentAttempt.count({
+              where: { reservationId: r.id, reviewRequired: true },
+            });
+            const overlap = {
+              professionalId: r.professionalId,
+              startsAt: { lt: r.endsAt },
+              endsAt: { gt: r.startsAt },
+            };
+            const clash = await tx.reservation.findFirst({
+              where: { ...overlap, id: { not: r.id }, ...busyWhere() },
+            });
+            const block = await tx.scheduleBlock.findFirst({ where: overlap });
+            if (validPrimary && pendingReviews === 0 && !clash && !block) {
+              await tx.reservation.update({
+                where: { id: r.id },
+                data: { status: 'CONFIRMED', reviewHoldsSlot: false },
+              });
+            }
+          }
+          await notifyReservation(tx, r, 'Devolución registrada');
         }
       }
       return { received: true };

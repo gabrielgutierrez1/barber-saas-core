@@ -251,4 +251,395 @@ test('consistencia transaccional de pagos y reservas', { timeout: 90000 }, async
       0,
     );
   });
+  await t.test(
+    'reembolso o contracargo de pago secundario no invalida reserva confirmada ni pago principal',
+    async () => {
+      const r = await reservations.create(dto('20:00'));
+      await payments.apply(payment('primary-a', r.id));
+      assert.equal((await fresh(r.id)).status, 'CONFIRMED');
+      assert.equal((await fresh(r.id)).approvedPaymentId, 'primary-a');
+      assert.equal(await free('20:00'), false);
+
+      await payments.apply({
+        ...payment('secondary-b', r.id),
+        status: 'rejected',
+        updatedAt: new Date('2026-01-01'),
+      });
+      await payments.apply({
+        ...payment('secondary-b', r.id),
+        status: 'refunded',
+        updatedAt: new Date('2026-01-02'),
+      });
+
+      const primary = await db.paymentAttempt.findUniqueOrThrow({ where: { id: 'primary-a' } });
+      const secondary = await db.paymentAttempt.findUniqueOrThrow({ where: { id: 'secondary-b' } });
+      assert.equal(primary.status, 'approved');
+      assert.equal(primary.reviewRequired, false);
+      assert.equal(secondary.status, 'refunded');
+      assert.equal(secondary.reviewRequired, false);
+      assert.equal((await fresh(r.id)).approvedPaymentId, 'primary-a');
+      assert.equal((await fresh(r.id)).status, 'CONFIRMED');
+      assert.equal(await free('20:00'), false);
+      assert.equal(
+        await db.auditEvent.count({ where: { reservationId: r.id, action: 'REFUND_RECORDED' } }),
+        1,
+      );
+
+      // Eventos duplicados y antiguos fuera de orden no duplican auditoría ni alteran estado.
+      assert.deepEqual(
+        await payments.apply({
+          ...payment('secondary-b', r.id),
+          status: 'refunded',
+          updatedAt: new Date('2026-01-02'),
+        }),
+        { duplicate: true },
+      );
+      assert.deepEqual(
+        await payments.apply({
+          ...payment('secondary-b', r.id),
+          status: 'approved',
+          updatedAt: new Date('2026-01-01'),
+        }),
+        { duplicate: true },
+      );
+      assert.equal(
+        await db.auditEvent.count({ where: { reservationId: r.id, action: 'REFUND_RECORDED' } }),
+        1,
+      );
+      assert.equal((await fresh(r.id)).status, 'CONFIRMED');
+
+      // Contracargo de otro pago secundario tampoco invalida la reserva confirmada.
+      await payments.apply({
+        ...payment('secondary-c', r.id),
+        status: 'charged_back',
+        updatedAt: new Date('2026-01-03'),
+      });
+      assert.equal((await fresh(r.id)).status, 'CONFIRMED');
+      assert.equal((await fresh(r.id)).approvedPaymentId, 'primary-a');
+      assert.equal(
+        (await db.paymentAttempt.findUniqueOrThrow({ where: { id: 'secondary-c' } }))
+          .reviewRequired,
+        false,
+      );
+      assert.equal(
+        await db.auditEvent.count({
+          where: { reservationId: r.id, action: 'CHARGEBACK_RECORDED' },
+        }),
+        1,
+      );
+
+      // Si la reserva estaba en PAYMENT_REVIEW por pagos duplicados, solo vuelve a CONFIRMED
+      // cuando no quedan otras incidencias pendientes.
+      const r2 = await reservations.create(dto('20:30'));
+      await payments.apply(payment('primary-a2', r2.id));
+      await payments.apply(payment('dup-d', r2.id));
+      await payments.apply(payment('dup-e', r2.id, 5000));
+      assert.equal((await fresh(r2.id)).status, 'PAYMENT_REVIEW');
+      assert.equal((await fresh(r2.id)).reviewHoldsSlot, true);
+
+      await payments.apply({
+        ...payment('dup-d', r2.id),
+        status: 'refunded',
+        updatedAt: new Date('2026-01-02'),
+      });
+      assert.equal(
+        (await db.paymentAttempt.findUniqueOrThrow({ where: { id: 'dup-d' } })).reviewRequired,
+        false,
+      );
+      assert.equal(
+        (await db.paymentAttempt.findUniqueOrThrow({ where: { id: 'dup-e' } })).reviewRequired,
+        true,
+      );
+      assert.equal((await fresh(r2.id)).status, 'PAYMENT_REVIEW');
+      assert.equal(await free('20:30'), false);
+
+      await payments.apply({
+        ...payment('dup-e', r2.id, 5000),
+        status: 'refunded',
+        updatedAt: new Date('2026-01-03'),
+      });
+      assert.equal(
+        (await db.paymentAttempt.findUniqueOrThrow({ where: { id: 'dup-e' } })).reviewRequired,
+        false,
+      );
+      assert.equal(
+        await db.auditEvent.count({ where: { reservationId: r2.id, action: 'AMOUNT_MISMATCH' } }),
+        1,
+      );
+      assert.equal((await fresh(r2.id)).status, 'CONFIRMED');
+      assert.equal((await fresh(r2.id)).approvedPaymentId, 'primary-a2');
+      assert.equal(await free('20:30'), false);
+    },
+  );
+  await t.test(
+    'reembolso y contracargo del pago principal pasan a revisión conservando retención',
+    async () => {
+      const rRefund = await reservations.create(dto('21:00'));
+      await payments.apply(payment('main-refund', rRefund.id));
+      assert.equal((await fresh(rRefund.id)).status, 'CONFIRMED');
+
+      await payments.apply({
+        ...payment('main-refund', rRefund.id),
+        status: 'refunded',
+        updatedAt: new Date('2026-01-02'),
+      });
+      assert.equal((await fresh(rRefund.id)).status, 'PAYMENT_REVIEW');
+      assert.equal((await fresh(rRefund.id)).reviewHoldsSlot, true);
+      assert.equal(await free('21:00'), false);
+      assert.equal(
+        (await db.paymentAttempt.findUniqueOrThrow({ where: { id: 'main-refund' } }))
+          .reviewRequired,
+        true,
+      );
+      assert.equal(
+        await db.auditEvent.count({
+          where: { reservationId: rRefund.id, action: 'REFUND_RECORDED' },
+        }),
+        1,
+      );
+      await assert.rejects(
+        reservations.review(
+          rRefund.id,
+          { status: 'CONFIRMED', paymentAttemptId: 'main-refund', note: 'Pago ya reembolsado' },
+          'owner',
+        ),
+      );
+
+      const rCb = await reservations.create(dto('21:30'));
+      await payments.apply(payment('main-cb', rCb.id));
+      await payments.apply({
+        ...payment('main-cb', rCb.id),
+        status: 'charged_back',
+        updatedAt: new Date('2026-01-02'),
+      });
+      assert.equal((await fresh(rCb.id)).status, 'PAYMENT_REVIEW');
+      assert.equal((await fresh(rCb.id)).reviewHoldsSlot, true);
+      assert.equal(await free('21:30'), false);
+      assert.equal(
+        (await db.paymentAttempt.findUniqueOrThrow({ where: { id: 'main-cb' } })).reviewRequired,
+        true,
+      );
+      assert.equal(
+        await db.auditEvent.count({
+          where: { reservationId: rCb.id, action: 'CHARGEBACK_RECORDED' },
+        }),
+        1,
+      );
+    },
+  );
+  await t.test(
+    'resolución administrativa por pago mantiene otros pendientes, horario y trazabilidad',
+    async () => {
+      // 1. Reserva con un solo pago pendiente de revisión.
+      const rSingle = await reservations.create(dto('22:00'));
+      await db.reservation.update({
+        where: { id: rSingle.id },
+        data: { expiresAt: new Date(0) },
+      });
+      await payments.apply(payment('single-pending', rSingle.id));
+      assert.equal((await fresh(rSingle.id)).status, 'PAYMENT_REVIEW');
+      await reservations.review(
+        rSingle.id,
+        {
+          status: 'CONFIRMED',
+          paymentAttemptId: 'single-single-invalid',
+          note: 'Pago inexistente',
+        },
+        'admin-1',
+      ).catch(() => {});
+      await assert.rejects(
+        reservations.review(
+          rSingle.id,
+          {
+            status: 'CONFIRMED',
+            paymentAttemptId: 'single-single-invalid',
+            note: 'Pago inexistente',
+          },
+          'admin-1',
+        ),
+      );
+      await reservations.review(
+        rSingle.id,
+        {
+          status: 'CONFIRMED',
+          paymentAttemptId: 'single-pending',
+          note: 'Confirmado pago único',
+        },
+        'admin-1',
+      );
+      assert.equal((await fresh(rSingle.id)).status, 'CONFIRMED');
+      assert.equal(
+        (await db.paymentAttempt.findUniqueOrThrow({ where: { id: 'single-pending' } }))
+          .reviewRequired,
+        false,
+      );
+      assert.equal(await free('22:00'), false);
+
+      // 2. Reserva con dos pagos y solo uno pendiente, luego un tercero pendiente (dos pendientes).
+      const rMulti = await reservations.create(dto('22:30'));
+      await payments.apply(payment('multi-main', rMulti.id));
+      await payments.apply(payment('multi-dup', rMulti.id));
+      assert.equal(
+        (await db.paymentAttempt.findUniqueOrThrow({ where: { id: 'multi-main' } })).reviewRequired,
+        false,
+      );
+      assert.equal(
+        (await db.paymentAttempt.findUniqueOrThrow({ where: { id: 'multi-dup' } })).reviewRequired,
+        true,
+      );
+
+      // Si el administrador confirma la reserva apuntando al pago principal, el duplicado sigue pendiente.
+      await reservations.review(
+        rMulti.id,
+        {
+          status: 'CONFIRMED',
+          paymentAttemptId: 'multi-main',
+          note: 'Se confirma horario con pago principal',
+        },
+        'admin-owner',
+      );
+      assert.equal((await fresh(rMulti.id)).status, 'CONFIRMED');
+      assert.equal(
+        (await db.paymentAttempt.findUniqueOrThrow({ where: { id: 'multi-dup' } })).reviewRequired,
+        true,
+      );
+
+      // Llega otro pago con importe incorrecto: ahora hay dos pagos pendientes (multi-dup y multi-bad).
+      await payments.apply(payment('multi-bad', rMulti.id, 7000));
+      assert.equal((await fresh(rMulti.id)).status, 'PAYMENT_REVIEW');
+      assert.equal(
+        await db.paymentAttempt.count({ where: { reservationId: rMulti.id, reviewRequired: true } }),
+        2,
+      );
+
+      // Sin paymentAttemptId cuando hay múltiples pendientes debe fallar.
+      await assert.rejects(
+        reservations.review(
+          rMulti.id,
+          { status: 'CONFIRMED', note: 'Ambiguo sin indicar pago' },
+          'admin-owner',
+        ),
+      );
+
+      // Intento de resolver un pago perteneciente a otra reserva debe fallar.
+      await assert.rejects(
+        reservations.review(
+          rMulti.id,
+          {
+            status: 'CONFIRMED',
+            paymentAttemptId: 'single-pending',
+            note: 'Pago de otra reserva',
+          },
+          'admin-owner',
+        ),
+      );
+
+      // Resolución del pago A (multi-dup) sin modificar el pendiente del pago B (multi-bad).
+      await reservations.review(
+        rMulti.id,
+        {
+          status: 'CONFIRMED',
+          paymentAttemptId: 'multi-dup',
+          note: 'Devolución de duplicado gestionada',
+        },
+        'admin-owner',
+      );
+      assert.equal(
+        (await db.paymentAttempt.findUniqueOrThrow({ where: { id: 'multi-dup' } })).reviewRequired,
+        false,
+      );
+      assert.equal(
+        (await db.paymentAttempt.findUniqueOrThrow({ where: { id: 'multi-bad' } })).reviewRequired,
+        true,
+      );
+      assert.equal(await free('22:30'), false);
+
+      // El panel administrativo continúa mostrando únicamente el pago no resuelto (multi-bad).
+      const listAfterFirst = await reservations.list(1);
+      const itemAfterFirst = listAfterFirst.items.find((i) => i.id === rMulti.id);
+      assert.ok(itemAfterFirst);
+      assert.deepEqual(itemAfterFirst.payments, [{ id: 'multi-bad' }]);
+
+      // Resolución del pago B (multi-bad) después del pago A.
+      await reservations.review(
+        rMulti.id,
+        {
+          status: 'CONFIRMED',
+          paymentAttemptId: 'multi-bad',
+          note: 'Devolución de importe incorrecto gestionada',
+        },
+        'admin-owner',
+      );
+      assert.equal(
+        (await db.paymentAttempt.findUniqueOrThrow({ where: { id: 'multi-bad' } })).reviewRequired,
+        false,
+      );
+      const listAfterSecond = await reservations.list(1);
+      const itemAfterSecond = listAfterSecond.items.find((i) => i.id === rMulti.id);
+      assert.ok(itemAfterSecond);
+      assert.deepEqual(itemAfterSecond.payments, []);
+      assert.equal(await free('22:30'), false);
+
+      // Verificación de auditoría con administrador, reserva y pagos afectados.
+      const audits = await db.auditEvent.findMany({
+        where: { reservationId: rMulti.id, action: 'REVIEW_CONFIRMED' },
+        orderBy: { createdAt: 'asc' },
+      });
+      assert.equal(audits.length, 3);
+      assert.ok(audits.every((a) => a.actorId === 'admin-owner'));
+      assert.ok(audits.some((a) => a.note.includes('multi-dup')));
+      assert.ok(audits.some((a) => a.note.includes('multi-bad')));
+
+      // Reserva cancelada con dos devoluciones pendientes se resuelve individualmente sin reactivarse.
+      const rCancelled = await reservations.create(dto('23:00'));
+      await payments.apply(payment('canc-a', rCancelled.id));
+      await payments.apply(payment('canc-b', rCancelled.id));
+      await reservations.cancel(rCancelled.id, 'admin-owner');
+      assert.equal((await fresh(rCancelled.id)).status, 'CANCELLED');
+      assert.equal(await free('23:00'), true);
+      assert.equal(
+        await db.paymentAttempt.count({
+          where: { reservationId: rCancelled.id, reviewRequired: true },
+        }),
+        2,
+      );
+
+      await assert.rejects(
+        reservations.review(
+          rCancelled.id,
+          { status: 'CONFIRMED', paymentAttemptId: 'canc-a', note: 'No debe reactivar' },
+          'admin-owner',
+        ),
+      );
+      assert.equal((await fresh(rCancelled.id)).status, 'CANCELLED');
+
+      await reservations.review(
+        rCancelled.id,
+        { status: 'CANCELLED', paymentAttemptId: 'canc-a', note: 'Reembolsado canc-a' },
+        'admin-owner',
+      );
+      assert.equal(
+        (await db.paymentAttempt.findUniqueOrThrow({ where: { id: 'canc-a' } })).reviewRequired,
+        false,
+      );
+      assert.equal(
+        (await db.paymentAttempt.findUniqueOrThrow({ where: { id: 'canc-b' } })).reviewRequired,
+        true,
+      );
+      assert.equal((await fresh(rCancelled.id)).status, 'CANCELLED');
+      assert.equal(await free('23:00'), true);
+
+      await reservations.review(
+        rCancelled.id,
+        { status: 'CANCELLED', paymentAttemptId: 'canc-b', note: 'Reembolsado canc-b' },
+        'admin-owner',
+      );
+      assert.equal(
+        (await db.paymentAttempt.findUniqueOrThrow({ where: { id: 'canc-b' } })).reviewRequired,
+        false,
+      );
+      assert.equal((await fresh(rCancelled.id)).status, 'CANCELLED');
+      assert.equal(await free('23:00'), true);
+    },
+  );
 });

@@ -281,23 +281,76 @@ export class ReservationsService {
     return this.db.$transaction(async (tx) => {
       await lock(tx, 'agenda');
       const r = await tx.reservation.findUniqueOrThrow({ where: { id } });
-      if (r.status !== 'PAYMENT_REVIEW' && !(r.status === 'CANCELLED' && dto.status === 'CANCELLED'))
+      if (r.status === 'CANCELLED' && dto.status !== 'CANCELLED')
         throw new ConflictException('La reserva no está en revisión');
+      const pending = await tx.paymentAttempt.findMany({
+        where: { reservationId: id, reviewRequired: true },
+        orderBy: [{ providerUpdatedAt: 'asc' }, { id: 'asc' }],
+      });
+      if (
+        r.status !== 'PAYMENT_REVIEW' &&
+        !(r.status === 'CANCELLED' && dto.status === 'CANCELLED') &&
+        !(r.status === 'CONFIRMED' && dto.status === 'CONFIRMED' && pending.length > 0)
+      )
+        throw new ConflictException('La reserva no está en revisión');
+      let target = null;
+      if (dto.paymentAttemptId) {
+        target = await tx.paymentAttempt.findUnique({ where: { id: dto.paymentAttemptId } });
+        if (!target || target.reservationId !== id)
+          throw new ConflictException('El pago no pertenece a esta reserva');
+        if (r.status === 'CONFIRMED' && !target.reviewRequired)
+          throw new ConflictException('El pago indicado no requiere revisión');
+      } else if (pending.length > 1) {
+        throw new ConflictException('Especifica el pago a revisar');
+      } else if (pending.length === 1) {
+        target = pending[0];
+      } else if (r.approvedPaymentId) {
+        target = await tx.paymentAttempt.findUnique({ where: { id: r.approvedPaymentId } });
+      }
       if (dto.status === 'CONFIRMED') {
         if (
           !r.approvedPaymentId ||
           !(await tx.paymentAttempt.findFirst({
-            where: { id: r.approvedPaymentId, status: 'approved', amount: r.priceSnapshot, currency: 'CLP' },
+            where: {
+              id: r.approvedPaymentId,
+              reservationId: id,
+              status: 'approved',
+              amount: r.priceSnapshot,
+              currency: 'CLP',
+            },
           }))
         )
           throw new ConflictException('No hay un pago aprobado vigente');
         if (r.startsAt <= new Date()) throw new ConflictException('Revisa una fecha futura');
         await this.assertFree(tx, r.professionalId, r.startsAt, r.endsAt, id);
       }
-      await tx.reservation.update({ where: { id }, data: { status: dto.status, reviewHoldsSlot: false } });
-      await tx.paymentAttempt.updateMany({ where: { reservationId: id }, data: { reviewRequired: false } });
+      await tx.reservation.update({
+        where: { id },
+        data: { status: dto.status, reviewHoldsSlot: false },
+      });
+      if (r.status !== 'CANCELLED' && dto.status === 'CANCELLED') {
+        await tx.paymentAttempt.updateMany({
+          where: {
+            reservationId: id,
+            status: 'approved',
+            ...(target ? { id: { not: target.id } } : {}),
+          },
+          data: { reviewRequired: true },
+        });
+      }
+      if (target) {
+        await tx.paymentAttempt.update({
+          where: { id: target.id },
+          data: { reviewRequired: false },
+        });
+      }
       await tx.auditEvent.create({
-        data: { actorId: actor, action: `REVIEW_${dto.status}`, reservationId: id, note: dto.note },
+        data: {
+          actorId: actor,
+          action: `REVIEW_${dto.status}`,
+          reservationId: id,
+          note: target ? `Pago ${target.id}: ${dto.note}` : dto.note,
+        },
       });
       await notifyReservation(tx, r, `Revisión resuelta: ${dto.status}`);
       return { ok: true };
