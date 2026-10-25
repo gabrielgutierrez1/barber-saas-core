@@ -65,6 +65,7 @@ export class MoveDto {
 export class ReviewDto {
   @IsIn(['CONFIRMED', 'CANCELLED']) status!: 'CONFIRMED' | 'CANCELLED';
   @IsString() @MinLength(5) @MaxLength(500) note!: string;
+  @IsOptional() @IsString() @MinLength(1) @MaxLength(100) paymentAttemptId?: string;
 }
 export class UserDto {
   @IsEmail() email!: string;

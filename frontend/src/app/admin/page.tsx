@@ -25,6 +25,8 @@ type Reservation = {
   endsAt: string;
   status: string;
   priceSnapshot: number;
+  reviewHoldsSlot?: boolean;
+  payments?: { id: string }[];
   serviceName: string;
   professionalId?: string;
   professional: { id?: string; name: string };
@@ -67,6 +69,7 @@ type Payment = {
   status: string;
   amount: number;
   currency: string;
+  reviewRequired?: boolean;
   providerUpdatedAt: string | null;
   reservation: Reservation & { service: { id: string; name: string } };
 };
@@ -757,6 +760,11 @@ export default function Admin() {
                       <div>
                         {money(r.priceSnapshot)}
                         <p>{STATUS_LABEL[r.status] || r.status}</p>
+                        {r.payments && r.payments.length > 0 && (
+                          <p className="text-xs text-[#c67a4d]">
+                            Pagos por revisar: {r.payments.map((p) => p.id).join(', ')}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-3 mt-4">
@@ -883,32 +891,50 @@ export default function Admin() {
                         </div>
                       </details>
                     )}
-                    {r.status === 'PAYMENT_REVIEW' && role === 'OWNER' && (
-                      <details className="mt-4">
-                        <summary>Resolver revisión</summary>
-                        <Form
-                          disabled={busy}
-                          onSubmit={(f) =>
-                            run(() =>
-                              save(`/api/admin/reservations/${r.id}/review`, {
-                                status: val(f, 'status'),
-                                note: val(f, 'note'),
-                              }),
-                            )
-                          }
-                        >
-                          <select className="input" name="status">
-                            <option value="CONFIRMED">Confirmar horario y pago</option>
-                            <option value="CANCELLED">Cancelar reserva</option>
-                          </select>
-                          <Field
-                            name="note"
-                            label="Motivo y gestión de devolución, si corresponde"
-                          />
-                          <button className="btn-dark">Guardar decisión</button>
-                        </Form>
-                      </details>
-                    )}
+                    {(r.status === 'PAYMENT_REVIEW' || (r.payments && r.payments.length > 0)) &&
+                      role === 'OWNER' && (
+                        <details className="mt-4">
+                          <summary>Resolver revisión</summary>
+                          <Form
+                            disabled={busy}
+                            onSubmit={(f) => {
+                              const paymentAttemptId = val(f, 'paymentAttemptId');
+                              return run(() =>
+                                save(`/api/admin/reservations/${r.id}/review`, {
+                                  status: val(f, 'status'),
+                                  note: val(f, 'note'),
+                                  ...(paymentAttemptId ? { paymentAttemptId } : {}),
+                                }),
+                              );
+                            }}
+                          >
+                            {r.payments && r.payments.length > 0 && (
+                              <select className="input" name="paymentAttemptId">
+                                {r.payments.map((p) => (
+                                  <option key={p.id} value={p.id}>
+                                    Pago {p.id}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
+                            <select
+                              className="input"
+                              name="status"
+                              defaultValue={r.status === 'CANCELLED' ? 'CANCELLED' : 'CONFIRMED'}
+                            >
+                              {r.status !== 'CANCELLED' && (
+                                <option value="CONFIRMED">Confirmar horario y pago</option>
+                              )}
+                              <option value="CANCELLED">Cancelar reserva</option>
+                            </select>
+                            <Field
+                              name="note"
+                              label="Motivo y gestión de devolución, si corresponde"
+                            />
+                            <button className="btn-dark">Guardar decisión</button>
+                          </Form>
+                        </details>
+                      )}
                   </article>
                 ))}
               </div>
@@ -938,6 +964,7 @@ export default function Admin() {
                   {details.payments.map((p) => (
                     <p key={p.id}>
                       Pago {p.id}: {p.status} · {money(p.amount)}
+                      {p.reviewRequired ? ' · Revisión pendiente' : ''}
                     </p>
                   ))}
                   {details.audit.map((a) => (
@@ -1316,7 +1343,10 @@ export default function Admin() {
                           </div>
                           <div className="text-right">
                             <p className="font-bold">{money(p.amount)}</p>
-                            <p className="text-sm">{p.status}</p>
+                            <p className="text-sm">
+                              {p.status}
+                              {p.reviewRequired ? ' · Revisión pendiente' : ''}
+                            </p>
                             {p.providerUpdatedAt && <p className="text-xs text-[#898b82]">{fmtDT(p.providerUpdatedAt)}</p>}
                           </div>
                         </div>
