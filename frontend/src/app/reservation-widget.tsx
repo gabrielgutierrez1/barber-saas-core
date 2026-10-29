@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { ArrowRight, CalendarDays, Clock3, Scissors, ShieldCheck, Sparkles } from 'lucide-react';
 import { apiFetch, ApiError, money, SalonService, Salon } from '../lib/types';
+import { assertCheckoutOrigin } from '../lib/booking-return';
 export function BookingWidget({ salon, services }: { salon: Salon; services: SalonService[] }) {
   const [professionals, setProfessionals] = useState<
     { id: string; name: string; services: { id: string }[] }[]
@@ -72,6 +73,8 @@ export function BookingWidget({ salon, services }: { salon: Salon; services: Sal
     setLoading(true);
     let createdId = pending?.id;
     try {
+      const config = await apiFetch<{ returnUrl: string }>('/api/public/payments/config');
+      assertCheckoutOrigin(config.returnUrl, window.location.origin);
       const token =
         pending?.bookingToken ||
         Array.from(crypto.getRandomValues(new Uint8Array(32)), (b) =>

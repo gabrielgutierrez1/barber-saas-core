@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { ArrowLeft, Clock3, CheckCircle2, AlertCircle, CalendarDays, Scissors } from 'lucide-react';
 import { apiFetch, money } from '../../lib/types';
 
+import { loadBookingStatus } from '../../lib/booking-return';
+
 type Status = 'PENDING_PAYMENT' | 'CONFIRMED' | 'EXPIRED' | 'CANCELLED' | 'PAYMENT_REVIEW' | '';
 
 type ReservationDetail = {
@@ -38,26 +40,10 @@ export default function ResultPage() {
   }, []);
 
   useEffect(() => {
-    const raw = localStorage.getItem('lastBooking');
-    if (!raw) {
-      setErr('No tenemos una reserva en esta sesión.');
-      return;
-    }
-    let data: { id: string; bookingToken: string };
-    try {
-      data = JSON.parse(raw);
-    } catch {
-      setErr('Datos de reserva inválidos');
-      return;
-    }
-
     let active = true;
     const check = async () => {
       try {
-        const result = await apiFetch<ReservationDetail>(
-          `/api/public/reservations/${data.id}/status`,
-          { method: 'POST', body: JSON.stringify({ bookingToken: data.bookingToken }) },
-        );
+        const result = await loadBookingStatus<ReservationDetail>(localStorage);
         if (active) {
           setStatus(result.status);
           setDetail(result);
@@ -125,7 +111,9 @@ export default function ResultPage() {
                   ? 'Reserva cancelada'
                   : status === 'EXPIRED'
                     ? 'Reserva vencida'
-                    : 'Verificando tu pago…'}
+                    : err && !status
+                      ? 'No pudimos consultar tu reserva'
+                      : 'Verificando tu pago…'}
           </h1>
           <p className="text-[#9498a6] leading-7 mb-7 text-sm sm:text-base">
             {confirmed
@@ -160,7 +148,9 @@ export default function ResultPage() {
                 <dt className="text-[#9498a6] flex items-center gap-1.5">
                   <CalendarDays size={13} style={{ color: 'var(--brand)' }} /> Fecha
                 </dt>
-                <dd className="font-semibold text-right">{fmt(detail.startsAt, detail.timeZone)}</dd>
+                <dd className="font-semibold text-right">
+                  {fmt(detail.startsAt, detail.timeZone)}
+                </dd>
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="text-[#9498a6]">Importe</dt>

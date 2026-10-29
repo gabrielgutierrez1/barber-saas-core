@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import {
   BadGatewayException,
+  BadRequestException,
   Body,
   ConflictException,
   Controller,
@@ -21,6 +22,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { MercadoPagoConfig, Payment, Preference, WebhookSignatureValidator } from 'mercadopago';
+import { checkoutReturnConfig } from '../../common/web-url';
 import { Database, lock } from '../../common/database';
 import { BookingTokenDto } from '../../common/dtos';
 import { busyWhere, effectiveStatus } from '../../common/time';
@@ -49,7 +51,7 @@ export class PaymentProvider {
     });
   }
   async checkout(r: Reservation) {
-    const origin = new URL(process.env.PUBLIC_WEB_URL!).origin;
+    const returnConfig = checkoutReturnConfig();
     const preference = await new Preference(this.client()).create({
       requestOptions: { idempotencyKey: r.checkoutKey },
       body: {
@@ -64,12 +66,7 @@ export class PaymentProvider {
         ],
         external_reference: r.legacyReference || r.id,
         payer: { email: r.customerEmail },
-        back_urls: {
-          success: `${origin}/resultado`,
-          failure: `${origin}/resultado`,
-          pending: `${origin}/resultado`,
-        },
-        ...(origin.startsWith('https:') ? { auto_return: 'approved' as const } : {}),
+        ...returnConfig,
         notification_url: process.env.MP_WEBHOOK_URL,
         expires: true,
         expiration_date_to: r.expiresAt.toISOString(),
@@ -460,10 +457,18 @@ export class PaymentsController {
     private payments: PaymentsService,
     private db: Database,
   ) {}
+  @Get('api/public/payments/config') config() {
+    return { returnUrl: checkoutReturnConfig().back_urls.success };
+  }
   @Post('api/public/reservations/:id/checkout') checkout(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: BookingTokenDto,
+    @Headers('origin') origin: string,
   ) {
+    if (origin !== new URL(checkoutReturnConfig().back_urls.success).origin)
+      throw new BadRequestException(
+        'Abre la reserva desde la URL pública del salón para conservarla al volver del pago',
+      );
     return this.payments.checkout(id, dto.bookingToken);
   }
   @Post('api/webhooks/mercadopago')
