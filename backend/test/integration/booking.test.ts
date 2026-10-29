@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { randomBytes } from 'node:crypto';
+import { createHmac, randomBytes } from 'node:crypto';
 import { DateTime } from 'luxon';
 import bcrypt from 'bcryptjs';
 import { testApp } from '../helpers/test-app';
@@ -111,6 +111,31 @@ test('instalación independiente: reservas, pagos y autenticación', { timeout: 
     assert.equal(results.filter((r) => r.status === 'fulfilled').length, 1);
     await payments.checkout(first.id, firstBody.bookingToken);
     assert.equal(calls, 1);
+  });
+  await t.test('URL approved no confirma; webhook exige firma y verifica proveedor', async () => {
+    const before = await request(`/api/public/reservations/${first.id}/status?status=approved&collection_status=approved`, { bookingToken: firstBody.bookingToken });
+    assert.equal(before.data.status, 'PENDING_PAYMENT');
+    process.env.MP_WEBHOOK_SECRET = 'test-webhook-secret';
+    const ts = String(Date.now());
+    const requestId = 'test-request';
+    const hash = createHmac('sha256', process.env.MP_WEBHOOK_SECRET)
+      .update(`id:900;request-id:${requestId};ts:${ts};`).digest('hex');
+    const get = provider.get;
+    let calls = 0;
+    provider.get = async () => {
+      calls++;
+      return { id: '900', externalReference: first.id, status: 'pending',
+        amount: firstBody.serviceId === s1.id ? 12000 : 8000,
+        currency: 'CLP', updatedAt: new Date() };
+    };
+    try {
+      await assert.rejects(payments.webhook('900', `ts=${ts},v1=bad`, requestId, { type: 'payment', data: { id: '900' } }));
+      assert.equal(calls, 0);
+      await payments.webhook('900', `ts=${ts},v1=${hash}`, requestId, { type: 'payment', data: { id: '900' } });
+      assert.equal(calls, 1);
+      assert.equal((await db.reservation.findUniqueOrThrow({ where: { id: first.id } })).status, 'PENDING_PAYMENT');
+      await db.paymentAttempt.delete({ where: { id: '900' } });
+    } finally { provider.get = get; }
   });
   await t.test('rechazo seguido de otro pago aprobado confirma sin bloquearse', async () => {
     const amount = firstBody.serviceId === s1.id ? 12000 : 8000;

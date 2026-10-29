@@ -61,3 +61,7 @@ El restore es transaccional, conserva el propietario de objetos y requiere que e
 ## Correo y pagos
 
 Antes de abrir al público, verifica entrega SMTP, recuperación de contraseña, recordatorio y un pago completo en sandbox del proveedor. Los tests automatizados no hacen cobros ni envían correo real. Configura alertas para revisiones de pago, concilia incidentes y registra la decisión desde el panel. La devolución se ejecuta en Mercado Pago y debe quedar reflejada por webhook/conciliación.
+
+## Retorno de Mercado Pago
+
+Consulta [Checkout Pro: HTTPS, túneles y cambios de dominio](mercadopago-return.md) antes de activar pagos o cambiar el dominio público.
