@@ -3,13 +3,14 @@ import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
+import { publicWebUrl } from './common/web-url';
 import { AppModule, ApiErrors } from './app';
 async function main() {
   for (const key of ['DATABASE_URL', 'JWT_SECRET', 'PUBLIC_WEB_URL'])
     if (!process.env[key] || process.env[key]!.startsWith('CAMBIAR_'))
       throw new Error(`Configura ${key}`);
   if (process.env.JWT_SECRET!.length < 32) throw new Error('JWT_SECRET requiere 32 caracteres');
-  const web = new URL(process.env.PUBLIC_WEB_URL!);
+  const web = publicWebUrl();
   if (!['http:', 'https:'].includes(web.protocol)) throw new Error('PUBLIC_WEB_URL inválida');
   if (process.env.MP_WEBHOOK_URL && new URL(process.env.MP_WEBHOOK_URL).protocol !== 'https:')
     throw new Error('MP_WEBHOOK_URL requiere HTTPS');
