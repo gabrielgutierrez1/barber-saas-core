@@ -49,49 +49,53 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
         connectionTimeout: 10000,
         socketTimeout: 15000,
       });
-      for (let i = 0; i < 10; i++) {
-        const job = await this.db.$transaction(async (tx) => {
-          await lock(tx, 'email');
-          const j = await tx.emailJob.findFirst({
-            where: {
-              sentAt: null,
-              attempts: { lt: 8 },
-              availableAt: { lte: new Date() },
-              OR: [{ leaseUntil: null }, { leaseUntil: { lt: new Date() } }],
-            },
-            orderBy: { createdAt: 'asc' },
+      try {
+        for (let i = 0; i < 10; i++) {
+          const job = await this.db.$transaction(async (tx) => {
+            await lock(tx, 'email');
+            const j = await tx.emailJob.findFirst({
+              where: {
+                sentAt: null,
+                attempts: { lt: 8 },
+                availableAt: { lte: new Date() },
+                OR: [{ leaseUntil: null }, { leaseUntil: { lt: new Date() } }],
+              },
+              orderBy: { createdAt: 'asc' },
+            });
+            if (!j) return null;
+            await tx.emailJob.update({
+              where: { id: j.id },
+              data: { leaseUntil: new Date(Date.now() + 60_000), attempts: { increment: 1 } },
+            });
+            return j;
           });
-          if (!j) return null;
-          await tx.emailJob.update({
-            where: { id: j.id },
-            data: { leaseUntil: new Date(Date.now() + 60_000), attempts: { increment: 1 } },
-          });
-          return j;
-        });
-        if (!job) break;
-        try {
-          await transport.sendMail({
-            from: process.env.SMTP_FROM,
-            to: job.to,
-            subject: job.subject,
-            text: job.text,
-            html: renderEmail(job, salon, process.env.PUBLIC_WEB_URL!),
-            messageId: `<${job.id}@${new URL(process.env.PUBLIC_WEB_URL!).hostname}>`,
-          });
-          await this.db.emailJob.update({
-            where: { id: job.id },
-            data: { sentAt: new Date(), leaseUntil: null },
-          });
-        } catch {
-          await this.db.emailJob.update({
-            where: { id: job.id },
-            data: {
-              leaseUntil: null,
-              availableAt: new Date(Date.now() + Math.min(3600, 2 ** job.attempts * 30) * 1000),
-            },
-          });
-          console.error(JSON.stringify({ event: 'email_delivery_failed', jobId: job.id }));
+          if (!job) break;
+          try {
+            await transport.sendMail({
+              from: process.env.SMTP_FROM,
+              to: job.to,
+              subject: job.subject,
+              text: job.text,
+              html: renderEmail(job, salon, process.env.PUBLIC_WEB_URL!),
+              messageId: `<${job.id}@${new URL(process.env.PUBLIC_WEB_URL!).hostname}>`,
+            });
+            await this.db.emailJob.update({
+              where: { id: job.id },
+              data: { sentAt: new Date(), leaseUntil: null },
+            });
+          } catch {
+            await this.db.emailJob.update({
+              where: { id: job.id },
+              data: {
+                leaseUntil: null,
+                availableAt: new Date(Date.now() + Math.min(3600, 2 ** job.attempts * 30) * 1000),
+              },
+            });
+            console.error(JSON.stringify({ event: 'email_delivery_failed', jobId: job.id }));
+          }
         }
+      } finally {
+        transport.close?.();
       }
     } catch {
       console.error(JSON.stringify({ event: 'notification_worker_failed' }));
