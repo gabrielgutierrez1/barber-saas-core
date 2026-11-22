@@ -368,7 +368,7 @@ export default function Admin() {
   }
 
   useEffect(() => {
-    if (token && tab === 'customers') void run(() => loadCustomers());
+    if (token && tab === 'customers' && role === 'OWNER') void run(() => loadCustomers());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, token]);
 
@@ -682,9 +682,7 @@ export default function Admin() {
                     ['content', 'Contenido web'],
                     ['users', 'Usuarios'],
                   ]
-                : [
-                    ['customers', 'Clientes'],
-                  ]),
+                : []),
               ['account', 'Mi cuenta'],
             ].map(([key, label]) => (
               <button

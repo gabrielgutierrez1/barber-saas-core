@@ -2,6 +2,9 @@ import 'reflect-metadata';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHmac, randomBytes } from 'node:crypto';
+import { existsSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { DateTime } from 'luxon';
 import bcrypt from 'bcryptjs';
 import { testApp } from '../helpers/test-app';
@@ -403,6 +406,20 @@ test('instalación independiente: reservas, pagos y autenticación', { timeout: 
       ).status,
       403,
     );
+    assert.equal(
+      (await request('/api/admin/customers', undefined, login.data.accessToken)).status,
+      403,
+    );
+    assert.equal(
+      (
+        await request(
+          '/api/admin/customers/history?email=client@example.com',
+          undefined,
+          login.data.accessToken,
+        )
+      ).status,
+      403,
+    );
   });
   await t.test('recuperación utiliza token de un solo uso', async () => {
     await request('/api/auth/forgot-password', { email: 'staff@example.com' });
@@ -507,6 +524,42 @@ test('instalación independiente: reservas, pagos y autenticación', { timeout: 
         201,
       );
       await db.service.update({ where: { id: s1.id }, data: { active: true } });
+
+      // Al actualizar la galería se eliminan del disco las imágenes locales huérfanas.
+      const uploadDir = mkdtempSync(join(tmpdir(), 'salon-uploads-'));
+      process.env.UPLOAD_DIR = uploadDir;
+      const oldImg = '11111111-1111-4111-8111-111111111111.webp';
+      const keptImg = '22222222-2222-4222-8222-222222222222.webp';
+      writeFileSync(join(uploadDir, oldImg), 'old');
+      writeFileSync(join(uploadDir, keptImg), 'kept');
+      const patchContent = async (gallery: { url: string; caption: string }[]) =>
+        fetch(`${url}/api/admin/content`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            address: 'Av. Principal 123',
+            about: 'Barbería',
+            cancellationPolicy: 'Política',
+            privacyPolicy: 'Privacidad',
+            faqs: [],
+            gallery,
+          }),
+        });
+      assert.equal(
+        (
+          await patchContent([
+            { url: `/api/public/images/${oldImg}`, caption: 'Foto 1' },
+            { url: `/api/public/images/${keptImg}`, caption: 'Foto 2' },
+          ])
+        ).status,
+        200,
+      );
+      assert.equal(
+        (await patchContent([{ url: `/api/public/images/${keptImg}`, caption: 'Foto 2' }])).status,
+        200,
+      );
+      assert.equal(existsSync(join(uploadDir, oldImg)), false);
+      assert.equal(existsSync(join(uploadDir, keptImg)), true);
     },
   );
   await t.test('cerrar sesión revoca el JWT', async () => {

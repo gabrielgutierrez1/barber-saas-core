@@ -17,6 +17,8 @@ async function main() {
   if (process.env.ACCESS_TOKEN && (!process.env.MP_WEBHOOK_SECRET || !process.env.MP_WEBHOOK_URL))
     throw new Error('Configura firma y URL de webhooks antes de activar pagos');
   const app = await NestFactory.create(AppModule);
+  if (process.env.TRUST_PROXY_HOPS)
+    app.getHttpAdapter().getInstance().set('trust proxy', Number(process.env.TRUST_PROXY_HOPS));
   app.use(helmet());
   app.use((_req: any, res: any, next: () => void) => {
     res.setHeader('Cache-Control', 'no-store');

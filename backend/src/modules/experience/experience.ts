@@ -4,6 +4,8 @@ import { Prisma } from '@prisma/client';
 import { DateTime } from 'luxon';
 import bcrypt from 'bcryptjs';
 import { randomBytes } from 'node:crypto';
+import { unlink } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import { Database } from '../../common/database';
 import { busyWhere, effectiveStatus } from '../../common/time';
 import { AdminGuard, AdminRequest, AuthModule, hashToken, OwnerGuard } from '../auth/auth';
@@ -39,9 +41,20 @@ export class PublicExperienceController {
 export class ExperienceController {
   constructor(private db: Database) {}
   @Patch('content') @UseGuards(OwnerGuard)
-  content(@Body() dto: ContentDto) {
+  async content(@Body() dto: ContentDto) {
+    const prev = await this.db.siteContent.findUnique({ where: { id: 1 } });
     const data = { ...dto, faqs: dto.faqs.map(f => ({ ...f })), gallery: dto.gallery.map(g => ({ ...g })) };
-    return this.db.siteContent.upsert({ where: { id: 1 }, create: { id: 1, ...data }, update: data });
+    const saved = await this.db.siteContent.upsert({ where: { id: 1 }, create: { id: 1, ...data }, update: data });
+    const kept = new Set(dto.gallery.map(g => g.url));
+    const oldGallery = Array.isArray(prev?.gallery) ? (prev.gallery as { url?: string }[]) : [];
+    for (const item of oldGallery) {
+      if (item.url?.startsWith('/api/public/images/') && !kept.has(item.url)) {
+        const file = item.url.slice('/api/public/images/'.length);
+        if (/^[0-9a-f-]{36}\.webp$/.test(file))
+          await unlink(resolve(process.env.UPLOAD_DIR || 'uploads', file)).catch(() => {});
+      }
+    }
+    return saved;
   }
   @Get('profile') profile(@Req() req: AdminRequest) {
     return this.db.user.findUniqueOrThrow({ where: { id: req.admin.id }, select: { name: true, email: true, role: true } });
@@ -87,13 +100,13 @@ export class ExperienceController {
     }
     return { todayCount: today.length, review, approvedGrossMonth: payments._sum.amount || 0, capacityMinutes, occupiedMinutes, upcoming, timeZone: salon.timeZone };
   }
-  @Get('customers') async customers(@Query() dto: CustomerQueryDto) {
+  @Get('customers') @UseGuards(OwnerGuard) async customers(@Query() dto: CustomerQueryDto) {
     const where: Prisma.ReservationWhereInput = dto.q ? { OR: [{ customerName: { contains: dto.q, mode: 'insensitive' } }, { customerEmail: { contains: dto.q, mode: 'insensitive' } }, { customerPhone: { contains: dto.q } }] } : {};
     const groups = await this.db.reservation.groupBy({ by: ['customerEmail'], where, _count: { _all: true }, _max: { startsAt: true }, orderBy: { customerEmail: 'asc' }, skip: (dto.page - 1) * 25, take: 26 });
     const items = await Promise.all(groups.slice(0, 25).map(async g => ({ email: g.customerEmail, visits: g._count._all, lastBooking: g._max.startsAt, ...(await this.db.reservation.findFirst({ where: { customerEmail: g.customerEmail }, orderBy: { createdAt: 'desc' }, select: { customerName: true, customerPhone: true } })) })));
     return { items, page: dto.page, hasMore: groups.length > 25 };
   }
-  @Get('customers/history') async history(@Query() dto: CustomerQueryDto) {
+  @Get('customers/history') @UseGuards(OwnerGuard) async history(@Query() dto: CustomerQueryDto) {
     if (!dto.email) throw new BadRequestException('Correo requerido');
     const where = { customerEmail: dto.email.trim().toLowerCase() };
     const [items, total] = await Promise.all([this.db.reservation.findMany({ where, select: reservationSelect, orderBy: { startsAt: 'desc' }, skip: (dto.page - 1) * 25, take: 25 }), this.db.reservation.count({ where })]);
