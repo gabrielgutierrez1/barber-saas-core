@@ -24,6 +24,7 @@ import { busyWhere, effectiveStatus, localStart } from '../../common/time';
 import { AdminGuard, AdminRequest, AuthModule, hashToken, OwnerGuard } from '../auth/auth';
 import { SearchDto } from '../experience/dtos';
 import { Prisma, Reservation } from '@prisma/client';
+import { Throttle } from '@nestjs/throttler';
 export async function notifyReservation(tx: Tx, r: Reservation, event: string) {
   const salon = await tx.salon.findUniqueOrThrow({ where: { id: 1 } });
   const date = DateTime.fromJSDate(r.startsAt).setZone(salon.timeZone).toFormat('dd/MM/yyyy HH:mm');
@@ -41,7 +42,7 @@ export async function notifyReservation(tx: Tx, r: Reservation, event: string) {
 @Injectable()
 export class ReservationsService {
   constructor(private db: Database) {}
-  async context(tx: Tx, serviceId: string, professionalId: string) {
+  async context(tx: Tx, serviceId: string, professionalId: string, allowInactiveService = false) {
     const [salon, service, professional] = await Promise.all([
       tx.salon.findUniqueOrThrow({ where: { id: 1 } }),
       tx.service.findUnique({ where: { id: serviceId } }),
@@ -49,12 +50,18 @@ export class ReservationsService {
         where: { id: professionalId, active: true, services: { some: { id: serviceId } } },
       }),
     ]);
-    if (!service?.active || !professional)
+    if (!service || (!service.active && !allowInactiveService) || !professional)
       throw new NotFoundException('Servicio o profesional no disponible');
     return { salon, service, professional };
   }
-  async interval(tx: Tx, serviceId: string, dto: MoveDto, duration?: number) {
-    const context = await this.context(tx, serviceId, dto.professionalId),
+  async interval(
+    tx: Tx,
+    serviceId: string,
+    dto: MoveDto,
+    duration?: number,
+    allowInactiveService = false,
+  ) {
+    const context = await this.context(tx, serviceId, dto.professionalId, allowInactiveService),
       { salon, service, professional } = context;
     const start = localStart(dto.date, dto.time, salon.timeZone),
       minutes = duration ?? service.durationMin;
@@ -90,6 +97,7 @@ export class ReservationsService {
       this.db,
       dto.serviceId,
       dto.professionalId,
+      Boolean(exclude),
     );
     const base = localStart(dto.date, '00:00', salon.timeZone);
     const overlap = {
@@ -127,16 +135,24 @@ export class ReservationsService {
   }
   async create(dto: CreateReservationDto) {
     const bookingTokenHash = hashToken(dto.bookingToken);
+    const customerEmail = dto.customerEmail.trim().toLowerCase();
     return this.db.$transaction(async (tx) => {
       await lock(tx, 'agenda');
       const prior = await tx.reservation.findUnique({ where: { bookingTokenHash } });
-      if (prior)
+      if (prior) {
+        if (
+          prior.customerEmail !== customerEmail ||
+          prior.serviceId !== dto.serviceId ||
+          prior.professionalId !== dto.professionalId
+        )
+          throw new ConflictException('Token de reserva inválido');
         return {
           id: prior.id,
           bookingToken: dto.bookingToken,
           status: effectiveStatus(prior),
           expiresAt: prior.expiresAt,
         };
+      }
       const { service, startsAt, endsAt } = await this.interval(tx, dto.serviceId, dto);
       await this.assertFree(tx, dto.professionalId, startsAt, endsAt);
       const r = await tx.reservation.create({
@@ -145,7 +161,7 @@ export class ReservationsService {
           professionalId: dto.professionalId,
           serviceName: service.name,
           customerName: dto.customerName.trim(),
-          customerEmail: dto.customerEmail.trim().toLowerCase(),
+          customerEmail,
           customerPhone: dto.customerPhone,
           bookingTokenHash,
           priceSnapshot: service.price,
@@ -226,6 +242,12 @@ export class ReservationsService {
       await lock(tx, 'agenda');
       const r = await tx.reservation.findUniqueOrThrow({ where: { id } });
       if (r.status === 'CANCELLED') return { ok: true };
+      const minNoticeMs = actor === 'customer' && r.status === 'CONFIRMED' ? 30 * 60_000 : 0;
+      if (
+        (r.status === 'CONFIRMED' || actor === 'customer') &&
+        r.startsAt.getTime() < Date.now() + minNoticeMs
+      )
+        throw new ConflictException('No es posible cancelar una cita pasada o próxima a iniciar');
       await tx.reservation.update({ where: { id }, data: { status: 'CANCELLED', reviewHoldsSlot: false } });
       const paid = await tx.paymentAttempt.updateMany({ where: { reservationId: id, status: 'approved' }, data: { reviewRequired: true } });
       await tx.emailJob.deleteMany({
@@ -241,11 +263,12 @@ export class ReservationsService {
             : 'Sin pago aprobado registrado',
         },
       });
-      await notifyReservation(
-        tx,
-        r,
-        'Reserva cancelada. Si pagaste, el salón coordinará la devolución',
-      );
+      if (r.status !== 'PENDING_PAYMENT' || paid.count > 0 || r.approvedPaymentId)
+        await notifyReservation(
+          tx,
+          r,
+          'Reserva cancelada. Si pagaste, el salón coordinará la devolución',
+        );
       return { ok: true };
     });
   }
@@ -255,8 +278,11 @@ export class ReservationsService {
       const r = await tx.reservation.findUniqueOrThrow({ where: { id } });
       if (r.status !== 'CONFIRMED')
         throw new ConflictException('Solo se reprograman reservas confirmadas');
+      const minNoticeMs = actor === 'customer' ? 30 * 60_000 : 0;
+      if (r.startsAt.getTime() < Date.now() + minNoticeMs)
+        throw new ConflictException('No es posible reprogramar una cita pasada o próxima a iniciar');
       const duration = (r.endsAt.getTime() - r.startsAt.getTime()) / 60_000;
-      const { startsAt, endsAt } = await this.interval(tx, r.serviceId, dto, duration);
+      const { startsAt, endsAt } = await this.interval(tx, r.serviceId, dto, duration, true);
       await this.assertFree(tx, dto.professionalId, startsAt, endsAt, id);
       const updated = await tx.reservation.update({
         where: { id },
@@ -383,7 +409,9 @@ export class PublicReservationsController {
   @Get('availability') availability(@Query() dto: DateQueryDto) {
     return this.service.availability(dto);
   }
-  @Post('reservations') create(@Body() dto: CreateReservationDto) {
+  @Post('reservations')
+  @Throttle({ default: { limit: 15, ttl: 60_000 } })
+  create(@Body() dto: CreateReservationDto) {
     return this.service.create(dto);
   }
   @Post('reservations/:id/status') status(

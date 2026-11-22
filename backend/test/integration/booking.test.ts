@@ -83,6 +83,11 @@ test('instalación independiente: reservas, pagos y autenticación', { timeout: 
     const result = await request('/api/public/reservations', firstBody);
     assert.equal(result.data.id, first.id);
     assert.equal(await db.reservation.count(), 2);
+    const hijacked = await request('/api/public/reservations', {
+      ...firstBody,
+      customerEmail: 'attacker@example.com',
+    });
+    assert.equal(hijacked.status, 409);
   });
   await t.test('token incorrecto no expone reservas', async () =>
     assert.equal(
@@ -425,6 +430,85 @@ test('instalación independiente: reservas, pagos y autenticación', { timeout: 
       401,
     );
   });
+  await t.test(
+    'impide reprogramar o cancelar reservas pasadas, no envía spam al cancelar pendientes y permite mover con servicio desactivado',
+    async () => {
+      const emailsBefore = await db.emailJob.count();
+      const pendingBody = body(s1.id, staff.id, '21:00');
+      const createdPending = await request('/api/public/reservations', pendingBody);
+      assert.equal(createdPending.status, 201);
+      assert.equal(
+        (
+          await request(`/api/public/reservations/${createdPending.data.id}/cancel`, {
+            bookingToken: pendingBody.bookingToken,
+          })
+        ).status,
+        201,
+      );
+      assert.equal(await db.emailJob.count(), emailsBefore);
+
+      const confirmedBody = body(s1.id, staff.id, '21:30');
+      const createdConfirmed = await request('/api/public/reservations', confirmedBody);
+      assert.equal(createdConfirmed.status, 201);
+      await payments.apply({
+        id: 'lifecycle-1',
+        externalReference: createdConfirmed.data.id,
+        status: 'approved',
+        amount: 12000,
+        currency: 'CLP',
+        updatedAt: new Date('2026-04-01'),
+      });
+      await db.reservation.update({
+        where: { id: createdConfirmed.data.id },
+        data: {
+          startsAt: new Date(Date.now() - 3600_000),
+          endsAt: new Date(Date.now() - 1800_000),
+        },
+      });
+      assert.equal(
+        (
+          await request(`/api/public/reservations/${createdConfirmed.data.id}/move`, {
+            bookingToken: confirmedBody.bookingToken,
+            professionalId: staff.id,
+            date,
+            time: '22:00',
+          })
+        ).status,
+        409,
+      );
+      assert.equal(
+        (
+          await request(`/api/public/reservations/${createdConfirmed.data.id}/cancel`, {
+            bookingToken: confirmedBody.bookingToken,
+          })
+        ).status,
+        409,
+      );
+
+      // Reprogramar cita futura confirmada funciona incluso si el servicio se desactivó del catálogo público.
+      const futureStart = DateTime.fromISO(`${date}T21:30:00Z`).toJSDate();
+      await db.reservation.update({
+        where: { id: createdConfirmed.data.id },
+        data: {
+          startsAt: futureStart,
+          endsAt: new Date(futureStart.getTime() + 1800_000),
+        },
+      });
+      await db.service.update({ where: { id: s1.id }, data: { active: false } });
+      assert.equal(
+        (
+          await request(`/api/public/reservations/${createdConfirmed.data.id}/move`, {
+            bookingToken: confirmedBody.bookingToken,
+            professionalId: staff.id,
+            date,
+            time: '22:00',
+          })
+        ).status,
+        201,
+      );
+      await db.service.update({ where: { id: s1.id }, data: { active: true } });
+    },
+  );
   await t.test('cerrar sesión revoca el JWT', async () => {
     await request('/api/auth/logout', {}, token);
     assert.equal((await request('/api/admin/reservations', undefined, token)).status, 401);
