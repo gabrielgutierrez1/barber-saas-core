@@ -504,9 +504,9 @@ test('consistencia transaccional de pagos y reservas', { timeout: 90000 }, async
         true,
       );
 
-      // Llega otro pago con importe incorrecto: ahora hay dos pagos pendientes (multi-dup y multi-bad).
+      // Llega otro pago con importe incorrecto sobre una reserva ya CONFIRMED: el intento queda pendiente de revisión sin degradar la reserva confirmada.
       await payments.apply(payment('multi-bad', rMulti.id, 7000));
-      assert.equal((await fresh(rMulti.id)).status, 'PAYMENT_REVIEW');
+      assert.equal((await fresh(rMulti.id)).status, 'CONFIRMED');
       assert.equal(
         await db.paymentAttempt.count({ where: { reservationId: rMulti.id, reviewRequired: true } }),
         2,
@@ -640,6 +640,28 @@ test('consistencia transaccional de pagos y reservas', { timeout: 90000 }, async
       );
       assert.equal((await fresh(rCancelled.id)).status, 'CANCELLED');
       assert.equal(await free('23:00'), true);
+
+      // Si el pago principal se reembolsa pero existe un segundo pago aprobado válido, se puede confirmar promoviendo el segundo pago.
+      const rPromote = await reservations.create(dto('23:30'));
+      await payments.apply(payment('prom-a', rPromote.id));
+      await payments.apply(payment('prom-b', rPromote.id));
+      await payments.apply({
+        ...payment('prom-a', rPromote.id),
+        status: 'refunded',
+        updatedAt: new Date('2026-01-02'),
+      });
+      assert.equal((await fresh(rPromote.id)).status, 'PAYMENT_REVIEW');
+      await reservations.review(
+        rPromote.id,
+        { status: 'CONFIRMED', paymentAttemptId: 'prom-b', note: 'Confirmado con segundo pago aprobado' },
+        'admin-owner',
+      );
+      assert.equal((await fresh(rPromote.id)).status, 'CONFIRMED');
+      assert.equal((await fresh(rPromote.id)).approvedPaymentId, 'prom-b');
+      assert.equal(
+        (await db.paymentAttempt.findUniqueOrThrow({ where: { id: 'prom-b' } })).reviewRequired,
+        false,
+      );
     },
   );
 });
