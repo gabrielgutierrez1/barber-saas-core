@@ -307,26 +307,46 @@ export class ReservationsService {
       } else if (r.approvedPaymentId) {
         target = await tx.paymentAttempt.findUnique({ where: { id: r.approvedPaymentId } });
       }
+      let approvedPaymentId = r.approvedPaymentId;
       if (dto.status === 'CONFIRMED') {
-        if (
-          !r.approvedPaymentId ||
-          !(await tx.paymentAttempt.findFirst({
-            where: {
-              id: r.approvedPaymentId,
-              reservationId: id,
-              status: 'approved',
-              amount: r.priceSnapshot,
-              currency: 'CLP',
-            },
-          }))
-        )
-          throw new ConflictException('No hay un pago aprobado vigente');
+        const valid =
+          target &&
+          target.status === 'approved' &&
+          Number(target.amount) === r.priceSnapshot &&
+          target.currency === 'CLP'
+            ? target
+            : r.approvedPaymentId
+              ? await tx.paymentAttempt.findFirst({
+                  where: {
+                    id: r.approvedPaymentId,
+                    reservationId: id,
+                    status: 'approved',
+                    amount: r.priceSnapshot,
+                    currency: 'CLP',
+                  },
+                })
+              : null;
+        if (!valid) throw new ConflictException('No hay un pago aprobado vigente');
         if (r.startsAt <= new Date()) throw new ConflictException('Revisa una fecha futura');
         await this.assertFree(tx, r.professionalId, r.startsAt, r.endsAt, id);
+        if (!r.approvedPaymentId || r.approvedPaymentId !== valid.id) {
+          const primaryValid = r.approvedPaymentId
+            ? await tx.paymentAttempt.findFirst({
+                where: {
+                  id: r.approvedPaymentId,
+                  reservationId: id,
+                  status: 'approved',
+                  amount: r.priceSnapshot,
+                  currency: 'CLP',
+                },
+              })
+            : null;
+          if (!primaryValid) approvedPaymentId = valid.id;
+        }
       }
       await tx.reservation.update({
         where: { id },
-        data: { status: dto.status, reviewHoldsSlot: false },
+        data: { status: dto.status, reviewHoldsSlot: false, approvedPaymentId },
       });
       if (r.status !== 'CANCELLED' && dto.status === 'CANCELLED') {
         await tx.paymentAttempt.updateMany({

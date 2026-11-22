@@ -255,13 +255,15 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
         return { review: true };
       }
       if (p.status === 'approved' && mismatch) {
-        await tx.reservation.update({
-          where: { id: r.id },
-          data: {
-            status: 'PAYMENT_REVIEW',
-            reviewHoldsSlot: holds,
-          },
-        });
+        if (!(r.status === 'CONFIRMED' && r.approvedPaymentId && r.approvedPaymentId !== p.id)) {
+          await tx.reservation.update({
+            where: { id: r.id },
+            data: {
+              status: 'PAYMENT_REVIEW',
+              reviewHoldsSlot: holds,
+            },
+          });
+        }
         await notifyReservation(tx, r, 'Pago con importe inconsistente en revisión');
         return { review: true };
       }
@@ -413,12 +415,15 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
       for (const r of rows) {
         try {
           await this.reconcile(r.id);
-          await this.db.reservation.update({
-            where: { id: r.id },
-            data: { updatedAt: new Date() },
-          });
         } catch {
           console.error(JSON.stringify({ event: 'reconciliation_failed', reservationId: r.id }));
+        } finally {
+          await this.db.reservation
+            .update({
+              where: { id: r.id },
+              data: { updatedAt: new Date() },
+            })
+            .catch(() => {});
         }
       }
     } finally {
